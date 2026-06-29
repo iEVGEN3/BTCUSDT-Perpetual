@@ -1,6 +1,8 @@
 import os
 import time
 import threading
+import json
+import requests
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import telebot
 from telebot import types
@@ -57,22 +59,28 @@ def get_main_keyboard():
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     """Приветственное сообщение бота."""
-    welcome_text = (
-        "📊 **Привет! Я твой аналитический фьючерсный ассистент.**\n\n"
-        "Моя главная цель — **помочь тебе сохранить депозит** и предоставлять взвешенные торговые рекомендации "
-        "на основе технического анализа ключевых рыночных индикаторов в реальном времени.\n\n"
-        "Помни главное правило риск-менеджмента:\n"
-        "⚠️ **Рекомендуется оставаться вне рынка (статус «ЖДИ») при отсутствии четких сигналов, чтобы избежать неоправданных рисков.**\n\n"
-        "**Как получить сигнал?**\n"
-        "• Нажми на одну из кнопок на клавиатуре.\n"
-        "• Отправь мне тикер монеты текстом (например: `BTC`, `ETH`, `SOL` или `TON`).\n"
-        "• 🎙️ **Запиши голосовое сообщение** с именем монеты (например, скажи: «Биткоин», «Эфир», «Солана» или «Тон»).\n\n"
-        "Также ты можешь подписаться на автоматические алерты, и я буду присылать тебе новые сильные сигналы сам!"
+    welcome_html = (
+        "<h2>📊 Привет! Я твой фьючерсный ассистент</h2>"
+        "<p>Моя главная цель — <b>помочь тебе сохранить депозит</b> и предоставлять взвешенные торговые рекомендации "
+        "на основе технического анализа ключевых рыночных индикаторов в реальном времени.</p>"
+        "<hr/>"
+        "<blockquote>"
+        "⚠️ <b>Правило риск-менеджмента:</b> Рекомендуется оставаться вне рынка (статус «ЖДИ») при отсутствии четких сигналов, "
+        "чтобы избежать неоправданных рисков."
+        "</blockquote>"
+        "<hr/>"
+        "<h4>Как получить сигнал?</h4>"
+        "<ul>"
+        "  <li>Нажми на одну из кнопок на клавиатуре.</li>"
+        "  <li>Отправь мне тикер монеты текстом (например: <code>BTC</code>, <code>ETH</code>, <code>SOL</code> или <code>TON</code>).</li>"
+        "  <li>🎙️ <b>Запиши голосовое сообщение</b> с именем монеты (например, скажи: «Биткоин», «Эфир», «Солана» или «Тон»).</li>"
+        "</ul>"
+        "<br/>"
+        "<footer>Также ты можешь подписаться на автоматические алерты, и я буду присылать тебе новые сильные сигналы сам!</footer>"
     )
-    bot.send_message(
+    send_rich_message(
         message.chat.id, 
-        welcome_text, 
-        parse_mode='Markdown', 
+        welcome_html, 
         reply_markup=get_main_keyboard()
     )
 
@@ -187,6 +195,126 @@ def format_signal_message(sig_data):
         
     return msg
 
+def send_rich_message(chat_id, html_content, reply_markup=None):
+    """Отправляет Rich Message с поддержкой HTML форматирования (Bot API 10.1)."""
+    url = f"https://api.telegram.org/bot{TOKEN}/sendRichMessage"
+    payload = {
+        "chat_id": chat_id,
+        "rich_message": {
+            "html": html_content
+        }
+    }
+    if reply_markup:
+        if hasattr(reply_markup, 'to_json'):
+            payload["reply_markup"] = json.loads(reply_markup.to_json())
+        else:
+            payload["reply_markup"] = reply_markup
+            
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        res_json = response.json()
+        if not res_json.get("ok"):
+            print(f"Ошибка sendRichMessage: {res_json}")
+            # Фолбэк на обычное сообщение, если API не поддерживается или вернул ошибку
+            fallback_text = html_content.replace("<br>", "\n").replace("<br/>", "\n")
+            import re
+            fallback_text = re.sub(r'<[^>]+>', '', fallback_text)
+            return bot.send_message(chat_id, fallback_text, reply_markup=reply_markup)
+        return res_json
+    except Exception as e:
+        print(f"Ошибка при вызове sendRichMessage: {e}")
+        # Фолбэк в случае сбоя сети
+        fallback_text = html_content.replace("<br>", "\n").replace("<br/>", "\n")
+        import re
+        fallback_text = re.sub(r'<[^>]+>', '', fallback_text)
+        return bot.send_message(chat_id, fallback_text, reply_markup=reply_markup)
+
+def get_rich_alternatives_html(current_ticker):
+    """Проверяет альтернативные монеты и возвращает блок альтернатив в формате Rich HTML."""
+    other_tickers = [t for t in ['BTC', 'ETH', 'SOL', 'TON'] if t != current_ticker]
+    active_alternative = None
+    
+    for t in other_tickers:
+        res = generate_signal(t)
+        if res['success'] and res['signal'] in ["✅ ПОКУПАЙ", "❌ ПРОДАВАЙ"]:
+            active_alternative = res
+            break
+            
+    if active_alternative:
+        ticker_alt = active_alternative['ticker'].replace('USDT', '')
+        sig_alt = active_alternative['signal']
+        reason_alt = active_alternative['metaphor'].split('.')[0] + '.'
+        price_alt = active_alternative['price']
+        sl_alt = active_alternative['stop_loss']
+        tp_alt = active_alternative['target1']
+        
+        return (
+            "<hr/>"
+            "<details open>"
+            "  <summary>💡 Доступная альтернатива</summary>"
+            f"  <p>Рекомендуется рассмотреть: <b>{ticker_alt}</b> (статус: <mark>{sig_alt}</mark>)</p>"
+            "  <ul>"
+            f"    <li>Вход: ${price_alt}</li>"
+            f"    <li>Стоп-лосс: ${sl_alt}</li>"
+            f"    <li>Цель 1: ${tp_alt}</li>"
+            "  </ul>"
+            f"  <blockquote>{reason_alt}</blockquote>"
+            "</details>"
+        )
+    else:
+        return (
+            "<hr/>"
+            "<details>"
+            "  <summary>💡 Альтернативные активы</summary>"
+            "  <p>«В данный момент по всем остальным основным монетам также рекомендуется ожидать оптимальных точек входа.»</p>"
+            "</details>"
+        )
+
+def format_rich_signal_message(sig_data):
+    """Форматирует сигнал в красивый Rich HTML."""
+    clean_ticker = sig_data['ticker'].replace('USDT', '')
+    recommendation = sig_data['signal']
+    
+    alt_block = ""
+    if sig_data['signal'] == "⏳ ЖДИ":
+        alt_block = get_rich_alternatives_html(clean_ticker)
+        
+    html = (
+        f"<h2>📈 Актив: {clean_ticker}</h2>"
+        f"<p>Текущая рыночная цена: <b>${sig_data['price']}</b></p>"
+        f"<h3>Рекомендация: <mark>{recommendation}</mark></h3>"
+        "<hr/>"
+        "<h4>Инструкция по шагам:</h4>"
+        "<ol>"
+        f"  <li>{sig_data['steps'][0]}</li>"
+        f"  <li>{sig_data['steps'][1]}</li>"
+        f"  <li>{sig_data['steps'][2]}</li>"
+        "</ol>"
+        "<hr/>"
+        "<h4>Уровни сделки и риск-менеджмент:</h4>"
+        "<table bordered striped>"
+        "  <tr><th>Параметр</th><th>Значение</th></tr>"
+        f"  <tr><td>🛡️ <b>Стоп-лосс</b> (ограничение риска)</td><td>${sig_data['stop_loss']}</td></tr>"
+        f"  <tr><td>🎯 <b>Цель 1</b> (фиксация 50%)</td><td>${sig_data['target1']}</td></tr>"
+        f"  <tr><td>🎯 <b>Цель 2</b> (фиксация 50%)</td><td>${sig_data['target2']}</td></tr>"
+        "</table>"
+        "<br/>"
+        "<blockquote>"
+        f"  <b>Обоснование:</b> {sig_data['metaphor']}"
+        "</blockquote>"
+        "<hr/>"
+        "<details open>"
+        "  <summary>📊 Параметры риска</summary>"
+        "  <ul>"
+        "    <li>Рекомендуемый риск на сделку: <b>0.5–1% от депозита</b></li>"
+        f"    <li>Уверенность модели: <b>{sig_data['confidence']}%</b></li>"
+        f"    <li>Резюме: <i>{sig_data['one_liner']}</i></li>"
+        "  </ul>"
+        "</details>"
+        f"{alt_block}"
+    )
+    return html
+
 @bot.message_handler(content_types=['voice'])
 def handle_voice_message(message):
     """Принимает голосовое сообщение, переводит в текст через Groq Whisper и выдает сигнал."""
@@ -259,8 +387,8 @@ def handle_voice_message(message):
             bot.reply_to(message, "Рыночный анализатор временно недоступен. Пожалуйста, будьте аккуратны при самостоятельной торговле.")
             return
             
-        formatted_msg = format_signal_message(sig_res)
-        bot.send_message(message.chat.id, formatted_msg, reply_markup=get_main_keyboard())
+        formatted_msg = format_rich_signal_message(sig_res)
+        send_rich_message(message.chat.id, formatted_msg, reply_markup=get_main_keyboard())
         
     except Exception as e:
         print(f"Ошибка голосового ввода: {e}")
@@ -292,8 +420,8 @@ def handle_ticker_request(message):
         bot.reply_to(message, warning_msg)
         return
         
-    formatted_msg = format_signal_message(sig_res)
-    bot.send_message(message.chat.id, formatted_msg, reply_markup=get_main_keyboard())
+    formatted_msg = format_rich_signal_message(sig_res)
+    send_rich_message(message.chat.id, formatted_msg, reply_markup=get_main_keyboard())
 
 # --- Фоновый планировщик алертов ---
 def alert_scheduler_loop():
@@ -318,14 +446,14 @@ def alert_scheduler_loop():
                     if not last_sig or last_sig['signal_type'] != sig_res['signal']:
                         database.save_signal(ticker, sig_res['raw_price'], sig_res['signal'])
                         
-                        formatted_msg = (
-                            "🚨 **ВНИМАНИЕ! ТЕХНИЧЕСКИЙ АЛЕРТ ПО РЫНКУ!** 🚨\n\n"
-                            f"{format_signal_message(sig_res)}"
+                        rich_alert_html = (
+                            "<h2>🚨 ВНИМАНИЕ! ТЕХНИЧЕСКИЙ АЛЕРТ ПО РЫНКУ! 🚨</h2>"
+                            f"{format_rich_signal_message(sig_res)}"
                         )
                         
                         for chat_id in subscribers:
                             try:
-                                bot.send_message(chat_id, formatted_msg, parse_mode='Markdown')
+                                send_rich_message(chat_id, rich_alert_html)
                                 time.sleep(0.05)
                             except Exception as sub_err:
                                 print(f"Не удалось отправить алерт пользователю {chat_id}: {sub_err}")
