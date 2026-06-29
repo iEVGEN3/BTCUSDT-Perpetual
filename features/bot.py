@@ -85,8 +85,8 @@ def run_network_diagnostics():
         "api.bybit.com",
         "api.bytick.com",
         "api.bybit.nl",
-        "api.bybit.de",
-        "api.bybit.co"
+        "api.bybit-tr.com",
+        "api.bybit.kz"
     ]
     for host in hosts:
         try:
