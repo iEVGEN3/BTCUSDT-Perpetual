@@ -34,6 +34,20 @@ if not TOKEN:
 
 bot = telebot.TeleBot(TOKEN)
 
+# Налаштування команд меню для появи кнопки "Меню" / "Старт"
+try:
+    bot.set_my_commands([
+        types.BotCommand("start", "Запустити бота та оновити меню"),
+        types.BotCommand("help", "Отримати довідку та інструкцію"),
+        types.BotCommand("subscribe", "Підписатися на торгові сигнали"),
+        types.BotCommand("unsubscribe", "Відписатися від торгових сигналів"),
+        types.BotCommand("subscribe_arbitrage", "Підписатися на арбітражні алерти"),
+        types.BotCommand("unsubscribe_arbitrage", "Відписатися від арбітражних алертів")
+    ])
+    print("Команди меню успішно налаштовані.")
+except Exception as e:
+    print(f"Помилка при налаштуванні команд меню: {e}")
+
 # Импорт наших модулей (находятся в той же папке features)
 import database
 from signals import generate_signal, check_arbitrage
