@@ -81,7 +81,7 @@ def send_welcome(message):
     welcome_html = (
         "<h2>📊 Привіт! Я твій ф'ючерсний асистент</h2>"
         "<p>Моя головна мета — <b>допомогти тобі зберегти депозит</b> та надавати зважені торгові рекомендації "
-        "на основі технічного аналізу ключових ринкових індикаторів у реальному часі.</p>"
+        "на основе технічного аналізу ключових ринкових індикаторів у реальному часі.</p>"
         "<hr/>"
         "<blockquote>"
         "⚠️ <b>Правило ризик-менеджменту:</b> Рекомендується залишатися поза ринком (статус «ЧЕКАЙ») за відсутності чітких сигналів, "
@@ -275,7 +275,7 @@ def format_rich_signal_message(sig_data):
         "<hr/>"
         "<h4>Рівні угоди та ризик-менеджмент:</h4>"
         "<table bordered striped>"
-        "  <tr><th>Параметр</th><th>Значення</th></tr>"
+        "  <tr><th>Параметр</th><th>Значение</th></tr>"
         f"  <tr><td>🛡️ <b>Стоп-лосс</b> (обмеження ризику)</td><td>${sig_data['stop_loss']}</td></tr>"
         f"  <tr><td>🎯 <b>Ціль 1</b> (фіксація 50%)</td><td>${sig_data['target1']}</td></tr>"
         f"  <tr><td>🎯 <b>Ціль 2</b> (фіксація 50%)</td><td>${sig_data['target2']}</td></tr>"
@@ -319,7 +319,7 @@ def format_rich_arbitrage_message(arb_data):
         f"  <li>Закрити угоду при схлопуванні спреду.</li>"
         f"</ol>"
         f"<blockquote>Рекомендований ризик: Мінімальний (без плеча)</blockquote>"
-        f"<footer>Моніторинг активний 24/7.</footer>"
+        f"<footer>Мониторинг активный 24/7.</footer>"
     )
     return html
 
@@ -380,7 +380,7 @@ def handle_voice_message(message):
             transcription = client.audio.transcriptions.create(
                 file=(voice_filename, audio_file.read()),
                 model="whisper-large-v3",
-                language="uk",  # Ukrainian voice language
+                language="uk",
                 temperature=0.0
             )
             
@@ -548,13 +548,31 @@ def arbitrage_scheduler_loop():
             time.sleep(10)
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
-    """Класс для обработки пингов проверки работоспособности (Render/Koyeb/HuggingFace)."""
+    """Класс для обработки пингов проверки работоспособности (Render/Koyeb/HuggingFace) и вебхуков Telegram."""
     def do_GET(self):
         if self.path in ['/', '/ping']:
             self.send_response(200)
             self.send_header('Content-type', 'text/plain')
             self.end_headers()
             self.wfile.write(b"OK")
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_POST(self):
+        if self.path == '/webhook':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            try:
+                json_string = post_data.decode('utf-8')
+                update = types.Update.de_json(json_string)
+                bot.process_new_updates([update])
+                self.send_response(200)
+                self.end_headers()
+            except Exception as e:
+                print(f"Помилка обробки вебхука Telegram: {e}")
+                self.send_response(500)
+                self.end_headers()
         else:
             self.send_response(404)
             self.end_headers()
@@ -579,5 +597,24 @@ if __name__ == '__main__':
     arbitrage_thread = threading.Thread(target=arbitrage_scheduler_loop, daemon=True)
     arbitrage_thread.start()
     
-    print("Бот успешно запущен и готов к работе...")
-    bot.infinity_polling()
+    # Налаштування вебхука замість Polling для стабільності на Hugging Face Spaces
+    time.sleep(2)  # Даємо серверу запуститися
+    space_id = os.getenv('SPACE_ID')
+    if space_id:
+        subdomain = space_id.lower().replace('/', '-')
+        webhook_url = f"https://{subdomain}.hf.space/webhook"
+    else:
+        webhook_url = "https://glove-3-futures-coach-bot.hf.space/webhook"
+        
+    try:
+        bot.remove_webhook()
+        bot.set_webhook(url=webhook_url, timeout=30)
+        print(f"Вебхук успішно встановлено на адресу: {webhook_url}")
+    except Exception as e:
+        print(f"Помилка встановлення вебхука Telegram: {e}")
+        
+    print("Бот успішно запущений в режимі Webhook і готов до роботи...")
+    
+    # Підтримуємо активність головного потоку
+    while True:
+        time.sleep(3600)
