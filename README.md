@@ -1,8 +1,8 @@
 ---
 title: Futures Coach Bot
 emoji: 🦊
-colorFrom: orange
-colorTo: red
+colorFrom: red
+colorTo: yellow
 sdk: docker
 app_port: 7860
 pinned: false
