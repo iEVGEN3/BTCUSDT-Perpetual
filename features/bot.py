@@ -34,6 +34,10 @@ if not TOKEN:
 
 bot = telebot.TeleBot(TOKEN)
 
+# Налаштування тайм-аутів для запобігання помилок мережі на серверах Hugging Face
+telebot.apihelper.CONNECT_TIMEOUT = 60
+telebot.apihelper.READ_TIMEOUT = 60
+
 # Налаштування команд меню для появи кнопки "Меню" / "Старт"
 try:
     bot.set_my_commands([
