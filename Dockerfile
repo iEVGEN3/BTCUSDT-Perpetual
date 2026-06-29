@@ -3,6 +3,9 @@ FROM python:3.11-slim
 # Создаем пользователя с UID 1000 для совместимости с Hugging Face Spaces
 RUN useradd -m -u 1000 user
 
+# Включение небуферизованного вывода Python для отображения логов в реальном времени
+ENV PYTHONUNBUFFERED=1
+
 # Установка рабочей директории
 WORKDIR /app
 
