@@ -4,7 +4,7 @@ import math
 from dotenv import load_dotenv
 import google.generativeai as genai
 from groq import Groq
-from market_data import analyze_market
+from market_data import analyze_market, get_binance_price, get_bybit_price
 
 # Загружаем переменные окружения из .env (поиск .env в текущей папке и всех родительских)
 def load_env_file():
@@ -169,7 +169,7 @@ def generate_signal(ticker: str) -> dict:
     
     # Логика пересечения MACD
     macd_bullish_cross = (macd['macd_prev'] <= macd['signal_prev']) and (macd['macd_curr'] > macd['signal_curr'])
-    macd_bearish_cross = (macd['macd_prev'] >= macd['signal_prev']) and (macd['macd_curr'] < macd['signal_curr'])
+    macd_bearish_cross = (macd['macd_prev'] >= macd['signal_prev']) and (macd['macd_curr'] < macd['signal_prev'])
     
     # 1. Сигнал на ПОКУПКУ (LONG)
     if price > ema50 and rsi < 55 and macd_bullish_cross:
@@ -268,3 +268,27 @@ def generate_signal(ticker: str) -> dict:
         'raw_price': price,
         'raw_rsi': rsi
     }
+
+def check_arbitrage(ticker: str, threshold_pct: float = 0.1) -> dict:
+    """Проверяет арбитражный спред для тикера между Binance и Bybit."""
+    try:
+        binance_price = get_binance_price(ticker)
+        bybit_price = get_bybit_price(ticker)
+        
+        # Расчет спреда
+        spread_pct = ((bybit_price - binance_price) / binance_price) * 100
+        
+        return {
+            'success': True,
+            'ticker': ticker.upper(),
+            'binance_price': binance_price,
+            'bybit_price': bybit_price,
+            'spread_pct': round(spread_pct, 4),
+            'is_opportunity': abs(spread_pct) >= threshold_pct
+        }
+    except Exception as e:
+        print(f"Ошибка проверки арбитража для {ticker}: {e}")
+        return {
+            'success': False,
+            'error': str(e)
+        }

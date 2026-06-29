@@ -3,6 +3,7 @@ import time
 import threading
 import json
 import requests
+import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import telebot
 from telebot import types
@@ -35,7 +36,7 @@ bot = telebot.TeleBot(TOKEN)
 
 # Импорт наших модулей (находятся в той же папке features)
 import database
-from signals import generate_signal
+from signals import generate_signal, check_arbitrage
 
 # Список основных монет
 MAJOR_COINS = ['BTC', 'ETH', 'SOL', 'TON', 'DOGE', 'NOT']
@@ -48,10 +49,10 @@ def get_main_keyboard():
         types.KeyboardButton("📈 Сигнал ETH"),
         types.KeyboardButton("📈 Сигнал SOL"),
         types.KeyboardButton("📈 Сигнал TON"),
-        types.KeyboardButton("📈 Сигнал DOGE"),
-        types.KeyboardButton("📈 Сигнал NOT"),
-        types.KeyboardButton("🔔 Подписаться на алерты"),
-        types.KeyboardButton("🔕 Отписаться от алертов")
+        types.KeyboardButton("🔔 Сигналы алерты"),
+        types.KeyboardButton("🔕 Отписаться от сигналов"),
+        types.KeyboardButton("🚨 Арбитраж алерты"),
+        types.KeyboardButton("🔕 Отписаться от арбитража")
     ]
     markup.add(*buttons)
     return markup
@@ -73,10 +74,10 @@ def send_welcome(message):
         "<ul>"
         "  <li>Нажми на одну из кнопок на клавиатуре.</li>"
         "  <li>Отправь мне тикер монеты текстом (например: <code>BTC</code>, <code>ETH</code>, <code>SOL</code> или <code>TON</code>).</li>"
-        "  <li>🎙️ <b>Запиши голосовое сообщение</b> с именем монеты (например, скажи: «Биткоин», «Эфир», «Солана» или «Тон»).</li>"
+        "  <li>🎙️ <b>Записаши голосовое сообщение</b> с именем монеты (например, скажи: «Биткоин», «Эфир», «Солана» или «Тон»).</li>"
         "</ul>"
         "<br/>"
-        "<footer>Также ты можешь подписаться на автоматические алерты, и я буду присылать тебе новые сильные сигналы сам!</footer>"
+        "<footer>Также ты можешь подписаться на автоматические алерты по сигналам или арбитражным связкам через кнопки в меню!</footer>"
     )
     send_rich_message(
         message.chat.id, 
@@ -84,24 +85,24 @@ def send_welcome(message):
         reply_markup=get_main_keyboard()
     )
 
-@bot.message_handler(func=lambda message: message.text == "🔔 Подписаться на алерты")
+@bot.message_handler(func=lambda message: message.text == "🔔 Сигналы алерты")
 @bot.message_handler(commands=['subscribe'])
 def handle_subscribe(message):
-    """Подписка пользователя на рассылку."""
+    """Подписка пользователя на рассылку торговых сигналов."""
     chat_id = message.chat.id
     username = message.from_user.username
     
     if database.is_subscribed(chat_id):
         bot.send_message(
             chat_id, 
-            "😊 Ты уже подписан на рыночные алерты!",
+            "😊 Вы уже подписаны на торговые алерты!",
             reply_markup=get_main_keyboard()
         )
     else:
         if database.subscribe_user(chat_id, username):
             bot.send_message(
                 chat_id, 
-                "🎉 **Вы успешно подписались на алерты.**\n"
+                "🎉 **Вы успешно подписались на торговые алерты.**\n"
                 "Как только по основным монетам будет зафиксирован сильный технический сигнал (Покупка или Продажа), я сразу же вам сообщу!",
                 parse_mode='Markdown',
                 reply_markup=get_main_keyboard()
@@ -113,22 +114,22 @@ def handle_subscribe(message):
                 reply_markup=get_main_keyboard()
             )
 
-@bot.message_handler(func=lambda message: message.text == "🔕 Отписаться от алертов")
+@bot.message_handler(func=lambda message: message.text == "🔕 Отписаться от сигналов")
 @bot.message_handler(commands=['unsubscribe'])
 def handle_unsubscribe(message):
-    """Отписка пользователя от рассылки."""
+    """Отписка пользователя от рассылки торговых сигналов."""
     chat_id = message.chat.id
     if not database.is_subscribed(chat_id):
         bot.send_message(
             chat_id, 
-            "🤷 Вы не подписаны на алерты.",
+            "🤷 Вы не подписаны на торговые алерты.",
             reply_markup=get_main_keyboard()
         )
     else:
         if database.unsubscribe_user(chat_id):
             bot.send_message(
                 chat_id, 
-                "😴 Вы успешно отписались от рассылки. При необходимости вы можете возобновить ее в любое время с помощью клавиатуры.",
+                "😴 Вы успешно отписались от рассылки сигналов.",
                 reply_markup=get_main_keyboard()
             )
         else:
@@ -138,96 +139,59 @@ def handle_unsubscribe(message):
                 reply_markup=get_main_keyboard()
             )
 
-def get_alternatives_text(current_ticker):
-    """Проверяет альтернативные монеты и возвращает блок альтернатив."""
-    other_tickers = [t for t in ['BTC', 'ETH', 'SOL', 'TON'] if t != current_ticker]
-    active_alternative = None
+@bot.message_handler(func=lambda message: message.text == "🚨 Арбитраж алерты")
+@bot.message_handler(commands=['subscribe_arbitrage'])
+def handle_subscribe_arbitrage(message):
+    """Подписка пользователя на арбитражные алерты."""
+    chat_id = message.chat.id
+    username = message.from_user.username
     
-    for t in other_tickers:
-        res = generate_signal(t)
-        if res['success'] and res['signal'] in ["✅ ПОКУПАЙ", "❌ ПРОДАВАЙ"]:
-            active_alternative = res
-            break
-            
-    if active_alternative:
-        ticker_alt = active_alternative['ticker']
-        sig_alt = active_alternative['signal']
-        reason_alt = active_alternative['metaphor'].split('.')[0] + '.'
-        price_alt = active_alternative['price']
-        sl_alt = active_alternative['stop_loss']
-        tp_alt = active_alternative['target1']
-        
-        return (
-            "Альтернативы сейчас:\n"
-            f"• {ticker_alt} — {sig_alt} | {reason_alt} | Вход: ${price_alt}, Стоп: ${sl_alt}, Цель: ${tp_alt}"
+    if database.is_arbitrage_subscribed(chat_id):
+        bot.send_message(
+            chat_id, 
+            "😊 Вы уже подписаны на арбитражные алерты!",
+            reply_markup=get_main_keyboard()
         )
     else:
-        return (
-            "Альтернативные активы:\n"
-            "«В данный момент по всем основным монетам рекомендуется ожидать оптимальных точек входа.»"
-        )
-
-def format_signal_message(sig_data):
-    """Форматирует сигнал строго по заданному шаблону."""
-    clean_ticker = sig_data['ticker'].replace('USDT', '')
-    
-    msg = (
-        f"Актив: {clean_ticker}\n"
-        f"Текущая цена: ≈ ${sig_data['price']}\n"
-        f"Рекомендация: {sig_data['signal']}\n"
-        "Инструкция по шагам:\n"
-        f"1. {sig_data['steps'][0]}\n"
-        f"2. {sig_data['steps'][1]}\n"
-        f"3. {sig_data['steps'][2]}\n"
-        "Конкретные уровни:\n"
-        f"• Стоп-лосс (ограничение убытков): ${sig_data['stop_loss']}\n"
-        f"• Цель 1 (фиксация прибыли): ${sig_data['target1']}\n"
-        f"• Цель 2 (фиксация прибыли): ${sig_data['target2']}\n"
-        f"Обоснование: {sig_data['metaphor']}\n"
-        "Рекомендуемый риск: 0.5–1% от депозита.\n"
-        f"Уверенность: {sig_data['confidence']}%\n"
-        f"Резюме: {sig_data['one_liner']}"
-    )
-    
-    if sig_data['signal'] == "⏳ ЖДИ":
-        alt_block = get_alternatives_text(clean_ticker)
-        msg += f"\n\n{alt_block}"
-        
-    return msg
-
-def send_rich_message(chat_id, html_content, reply_markup=None):
-    """Отправляет Rich Message с поддержкой HTML форматирования (Bot API 10.1)."""
-    url = f"https://api.telegram.org/bot{TOKEN}/sendRichMessage"
-    payload = {
-        "chat_id": chat_id,
-        "rich_message": {
-            "html": html_content
-        }
-    }
-    if reply_markup:
-        if hasattr(reply_markup, 'to_json'):
-            payload["reply_markup"] = json.loads(reply_markup.to_json())
+        if database.subscribe_arbitrage(chat_id, username):
+            bot.send_message(
+                chat_id, 
+                "🎉 **Вы успешно подписались на арбитражные алерты.**\n"
+                "Я буду отслеживать разницу курсов на Binance и Bybit. Как только спред превысит 0.15%, я пришлю вам связку!",
+                parse_mode='Markdown',
+                reply_markup=get_main_keyboard()
+            )
         else:
-            payload["reply_markup"] = reply_markup
-            
-    try:
-        response = requests.post(url, json=payload, timeout=10)
-        res_json = response.json()
-        if not res_json.get("ok"):
-            print(f"Ошибка sendRichMessage: {res_json}")
-            # Фолбэк на обычное сообщение, если API не поддерживается или вернул ошибку
-            fallback_text = html_content.replace("<br>", "\n").replace("<br/>", "\n")
-            import re
-            fallback_text = re.sub(r'<[^>]+>', '', fallback_text)
-            return bot.send_message(chat_id, fallback_text, reply_markup=reply_markup)
-        return res_json
-    except Exception as e:
-        print(f"Ошибка при вызове sendRichMessage: {e}")
-        # Фолбэк в случае сбоя сети
-        fallback_text = html_content.replace("<br>", "\n").replace("<br/>", "\n")
-        import re
-        fallback_text = re.sub(r'<[^>]+>', '', fallback_text)
-        return bot.send_message(chat_id, fallback_text, reply_markup=reply_markup)
+            bot.send_message(
+                chat_id, 
+                "❌ Не удалось подключить арбитражные алерты. Попробуйте позже.",
+                reply_markup=get_main_keyboard()
+            )
+
+@bot.message_handler(func=lambda message: message.text == "🔕 Отписаться от арбитража")
+@bot.message_handler(commands=['unsubscribe_arbitrage'])
+def handle_unsubscribe_arbitrage(message):
+    """Отписка пользователя от арбитражных алертов."""
+    chat_id = message.chat.id
+    if not database.is_arbitrage_subscribed(chat_id):
+        bot.send_message(
+            chat_id, 
+            "🤷 Вы не подписаны на арбитражные алерты.",
+            reply_markup=get_main_keyboard()
+        )
+    else:
+        if database.unsubscribe_arbitrage(chat_id):
+            bot.send_message(
+                chat_id, 
+                "😴 Вы успешно отключили арбитражные алерты.",
+                reply_markup=get_main_keyboard()
+            )
+        else:
+            bot.send_message(
+                chat_id, 
+                "❌ Не удалось отключить алерты. Попробуйте еще раз.",
+                reply_markup=get_main_keyboard()
+            )
 
 def get_rich_alternatives_html(current_ticker):
     """Проверяет альтернативные монеты и возвращает блок альтернатив в формате Rich HTML."""
@@ -281,7 +245,7 @@ def format_rich_signal_message(sig_data):
         
     html = (
         f"<h2>📈 Актив: {clean_ticker}</h2>"
-        f"<p>Текущая рыночная цена: <b>${sig_data['price']}</b></p>"
+        f"<p>Текущая консенсус-цена: <b>${sig_data['price']}</b></p>"
         f"<h3>Рекомендация: <mark>{recommendation}</mark></h3>"
         "<hr/>"
         "<h4>Инструкция по шагам:</h4>"
@@ -315,6 +279,66 @@ def format_rich_signal_message(sig_data):
     )
     return html
 
+def format_rich_arbitrage_message(arb_data):
+    """Форматирует арбитражный сигнал в красивый Rich HTML."""
+    clean_ticker = arb_data['ticker'].replace('USDT', '')
+    spread = arb_data['spread_pct']
+    binance_p = arb_data['binance_price']
+    bybit_p = arb_data['bybit_price']
+    
+    html = (
+        f"<h2>🚨 АРБИТРАЖНАЯ СВЯЗКА ДЕТЕКТИРОВАНА 🚨</h2>"
+        f"<p>Актив: <b>{clean_ticker}</b></p>"
+        f"<p>Разница в цене (спред): <b>{spread}%</b></p>"
+        f"<hr/>"
+        f"<p>📈 Покупка на Binance: <b>${binance_p}</b></p>"
+        f"<p>📉 Продажа на Bybit: <b>${bybit_p}</b></p>"
+        f"<hr/>"
+        f"<h4>Действие по шагам:</h4>"
+        f"<ol>"
+        f"  <li>Купить актив на спотовом/фьючерсном рынке Binance за ${binance_p}.</li>"
+        f"  <li>Перевести / хеджировать позицию на Bybit по цене ${bybit_p}.</li>"
+        f"  <li>Закрыть сделку при схлопывании спреда.</li>"
+        f"</ol>"
+        f"<blockquote>Рекомендуемый риск: Минимальный (без плеча)</blockquote>"
+        f"<footer>Мониторинг активен 24/7.</footer>"
+    )
+    return html
+
+def send_rich_message(chat_id, html_content, reply_markup=None):
+    """Отправляет Rich Message с поддержкой HTML форматирования (Bot API 10.1)."""
+    url = f"https://api.telegram.org/bot{TOKEN}/sendRichMessage"
+    payload = {
+        "chat_id": chat_id,
+        "rich_message": {
+            "html": html_content
+        }
+    }
+    if reply_markup:
+        if hasattr(reply_markup, 'to_json'):
+            payload["reply_markup"] = json.loads(reply_markup.to_json())
+        else:
+            payload["reply_markup"] = reply_markup
+            
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        res_json = response.json()
+        if not res_json.get("ok"):
+            print(f"Ошибка sendRichMessage: {res_json}")
+            # Фолбэк на обычное сообщение
+            fallback_text = html_content.replace("<br>", "\n").replace("<br/>", "\n")
+            import re
+            fallback_text = re.sub(r'<[^>]+>', '', fallback_text)
+            return bot.send_message(chat_id, fallback_text, reply_markup=reply_markup)
+        return res_json
+    except Exception as e:
+        print(f"Ошибка при вызове sendRichMessage: {e}")
+        # Фолбэк
+        fallback_text = html_content.replace("<br>", "\n").replace("<br/>", "\n")
+        import re
+        fallback_text = re.sub(r'<[^>]+>', '', fallback_text)
+        return bot.send_message(chat_id, fallback_text, reply_markup=reply_markup)
+
 @bot.message_handler(content_types=['voice'])
 def handle_voice_message(message):
     """Принимает голосовое сообщение, переводит в текст через Groq Whisper и выдает сигнал."""
@@ -326,18 +350,15 @@ def handle_voice_message(message):
     bot.send_chat_action(message.chat.id, 'record_audio')
     
     try:
-        # Скачиваем файл из Telegram
         file_info = bot.get_file(message.voice.file_id)
         downloaded_file = bot.download_file(file_info.file_path)
         
-        # Записываем временный файл ogg в текущей папке
         voice_filename = f"voice_{message.chat.id}_{int(time.time())}.ogg"
         with open(voice_filename, 'wb') as f:
             f.write(downloaded_file)
             
         bot.send_chat_action(message.chat.id, 'typing')
         
-        # Отправляем в Groq Whisper для транскрипции
         client = Groq(api_key=api_key)
         with open(voice_filename, "rb") as audio_file:
             transcription = client.audio.transcriptions.create(
@@ -347,14 +368,12 @@ def handle_voice_message(message):
                 temperature=0.0
             )
             
-        # Удаляем временный файл ogg
         if os.path.exists(voice_filename):
             os.remove(voice_filename)
             
         transcribed_text = transcription.text.strip().lower()
         print(f"Распознанный голос: {transcribed_text}")
         
-        # Сопоставляем русский голос с тикерами основных монет
         ticker = None
         if any(w in transcribed_text for w in ["биткоин", "bitcoin", "бтк", "btc"]):
             ticker = "BTC"
@@ -377,14 +396,12 @@ def handle_voice_message(message):
             )
             return
             
-        # Высылаем пользователю подтверждение распознанного тикера
         bot.send_message(message.chat.id, f"🎙️ **Голосовой запрос:** {ticker}\n(Распознано: «{transcribed_text}»)", parse_mode='Markdown')
         
-        # Генерируем сигнал
         sig_res = generate_signal(ticker)
         
         if not sig_res['success']:
-            bot.reply_to(message, "Рыночный анализатор временно недоступен. Пожалуйста, будьте аккуратны при самостоятельной торговле.")
+            bot.reply_to(message, "Рыночный анализатор временно недоступен.")
             return
             
         formatted_msg = format_rich_signal_message(sig_res)
@@ -426,7 +443,7 @@ def handle_ticker_request(message):
 # --- Фоновый планировщик алертов ---
 def alert_scheduler_loop():
     """Фоновый цикл проверки рынка для подписчиков каждые 15 минут."""
-    print("Запущен фоновый планировщик алертов...")
+    print("Запущен фоновый планировщик сигналов...")
     while True:
         try:
             time.sleep(900) # 15 минут
@@ -462,8 +479,59 @@ def alert_scheduler_loop():
             print(f"Ошибка в цикле планировщика алертов: {loop_err}")
             time.sleep(60)
 
+def arbitrage_scheduler_loop():
+    """Фоновый цикл проверки арбитража каждую минуту."""
+    print("Запущен фоновый планировщик арбитража...")
+    while True:
+        try:
+            time.sleep(60) # 1 минута
+            subscribers = database.get_all_arbitrage_subscribers()
+            if not subscribers:
+                continue
+                
+            for ticker in ['BTC', 'ETH', 'SOL', 'TON']:
+                arb_res = check_arbitrage(ticker, threshold_pct=0.15)
+                if not arb_res['success'] or not arb_res['is_opportunity']:
+                    continue
+                    
+                last_arb = database.get_last_arbitrage_opportunity(ticker)
+                should_send = True
+                
+                if last_arb:
+                    last_time = last_arb['timestamp']
+                    if isinstance(last_time, str):
+                        try:
+                            # Обработка таймштампа
+                            last_time = datetime.datetime.strptime(last_time.split('.')[0], "%Y-%m-%d %H:%M:%S")
+                        except Exception as parse_err:
+                            print(f"Ошибка парсинга даты {last_time}: {parse_err}")
+                            last_time = None
+                    if last_time:
+                        delta = (datetime.datetime.now() - last_time).total_seconds()
+                        if delta < 300:  # 5 минут остывания
+                            should_send = False
+                            
+                if should_send:
+                    database.save_arbitrage_opportunity(
+                        ticker, 
+                        arb_res['binance_price'], 
+                        arb_res['bybit_price'], 
+                        arb_res['spread_pct']
+                    )
+                    rich_html = format_rich_arbitrage_message(arb_res)
+                    for chat_id in subscribers:
+                        try:
+                            send_rich_message(chat_id, rich_html)
+                            time.sleep(0.05)
+                        except Exception as sub_err:
+                            print(f"Не удалось отправить арбитраж на {chat_id}: {sub_err}")
+                            
+        except Exception as loop_err:
+            print(f"Ошибка в цикле планировщика арбитража: {loop_err}")
+            time.sleep(10)
+
 class HealthCheckHandler(BaseHTTPRequestHandler):
-    """Класс для обработки пингов проверки работоспособности (Render/Koyeb)."""
+    """Класс для обработки пингов проверки работоспособности (Render/Koyeb/HuggingFace)."""
     def do_GET(self):
         if self.path in ['/', '/ping']:
             self.send_response(200)
@@ -475,22 +543,24 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def log_message(self, format, *args):
-        # Подавляем логирование обычных GET-запросов, чтобы не засорять консоль бота
         return
 
 def run_health_server():
-    port = int(os.getenv('PORT', 8080))
+    port = int(os.getenv('PORT', 7860))
     server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
     print(f"Запущен веб-сервер проверки здоровья на порту {port}...")
     server.serve_forever()
 
 if __name__ == '__main__':
-    # Запуск веб-сервера для совместимости с Render/Koyeb в фоновом режиме
+    # Инициализация веб-сервера
     health_thread = threading.Thread(target=run_health_server, daemon=True)
     health_thread.start()
 
     scheduler_thread = threading.Thread(target=alert_scheduler_loop, daemon=True)
     scheduler_thread.start()
+    
+    arbitrage_thread = threading.Thread(target=arbitrage_scheduler_loop, daemon=True)
+    arbitrage_thread.start()
     
     print("Бот успешно запущен и готов к работе...")
     bot.infinity_polling()

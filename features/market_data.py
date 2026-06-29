@@ -1,7 +1,8 @@
 import requests
+from tradingview_ta import TA_Handler, Interval
 
-def get_live_price(ticker: str) -> float:
-    """Получает текущую фьючерсную (или спотовую в качестве резерва) цену тикера с Binance."""
+def get_binance_price(ticker: str) -> float:
+    """Получает текущую фьючерсную (или спотовую) цену на Binance."""
     symbol = ticker.upper()
     if not symbol.endswith('USDT'):
         symbol = f"{symbol}USDT"
@@ -13,7 +14,7 @@ def get_live_price(ticker: str) -> float:
         if response.status_code == 200:
             return float(response.json()['price'])
     except Exception as e:
-        print(f"Исключение при запросе фьючерсной цены для {symbol}: {e}")
+        print(f"Исключение при запросе фьючерсной цены Binance для {symbol}: {e}")
         
     # 2. Попытка запроса к Spot API в качестве резерва
     try:
@@ -22,9 +23,46 @@ def get_live_price(ticker: str) -> float:
         if response.status_code == 200:
             return float(response.json()['price'])
     except Exception as e:
-        print(f"Исключение при запросе спотовой цены для {symbol}: {e}")
+        print(f"Исключение при запросе спотовой цены Binance для {symbol}: {e}")
         
-    raise ValueError(f"Не удалось получить цену для тикера {symbol}")
+    raise ValueError(f"Не удалось получить цену Binance для тикера {symbol}")
+
+def get_bybit_price(ticker: str) -> float:
+    """Получает текущую цену бессрочного фьючерса на Bybit."""
+    symbol = ticker.upper()
+    if not symbol.endswith('USDT'):
+        symbol = f"{symbol}USDT"
+    
+    url = f"https://api.bybit.com/v5/market/tickers?category=linear&symbol={symbol}"
+    try:
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('retCode') == 0 and len(data.get('result', {}).get('list', [])) > 0:
+                return float(data['result']['list'][0]['lastPrice'])
+    except Exception as e:
+        print(f"Исключение при запросе цены Bybit для {symbol}: {e}")
+        
+    raise ValueError(f"Не удалось получить цену Bybit для тикера {symbol}")
+
+def get_live_price(ticker: str) -> float:
+    """Возвращает консенсус-цену (среднее арифметическое Binance и Bybit)."""
+    prices = []
+    
+    try:
+        prices.append(get_binance_price(ticker))
+    except Exception:
+        pass
+        
+    try:
+        prices.append(get_bybit_price(ticker))
+    except Exception:
+        pass
+        
+    if not prices:
+        raise ValueError(f"Не удалось получить цену ни от одного источника для {ticker}")
+        
+    return sum(prices) / len(prices)
 
 def get_klines(ticker: str, interval: str = '15m', limit: int = 100) -> list:
     """Загружает исторические свечи (по умолчанию 15m) для расчета индикаторов."""
@@ -117,26 +155,78 @@ def calculate_ema(prices: list, period: int = 50) -> float:
     ema_list = calculate_ema_list(prices, period)
     return ema_list[-1]
 
-def analyze_market(ticker: str, interval: str = '15m') -> dict:
-    """Загружает свечи и возвращает рассчитанные индикаторы вместе с текущей ценой."""
-    try:
-        current_price = get_live_price(ticker)
-        klines = get_klines(ticker, interval=interval, limit=100)
+def get_tradingview_recommendation(ticker: str, interval: str = '15m') -> str:
+    """Получает техническую рекомендацию от TradingView."""
+    symbol = ticker.upper()
+    if not symbol.endswith('USDT'):
+        symbol = f"{symbol}USDT"
         
-        # Индекс 4 в свече Binance — это Close Price (Цена закрытия)
+    intervals_map = {
+        '1m': Interval.INTERVAL_1_MINUTE,
+        '5m': Interval.INTERVAL_5_MINUTES,
+        '15m': Interval.INTERVAL_15_MINUTES,
+        '1h': Interval.INTERVAL_1_HOUR,
+        '4h': Interval.INTERVAL_4_HOURS,
+        '1d': Interval.INTERVAL_1_DAY
+    }
+    
+    tv_interval = intervals_map.get(interval, Interval.INTERVAL_15_MINUTES)
+    
+    try:
+        handler = TA_Handler(
+            symbol=symbol,
+            screener="crypto",
+            exchange="BINANCE",
+            interval=tv_interval
+        )
+        analysis = handler.get_analysis()
+        return analysis.summary.get('RECOMMENDATION', 'NEUTRAL')
+    except Exception as e:
+        print(f"Ошибка при запросе ТА от TradingView для {symbol}: {e}")
+        return 'NEUTRAL'
+
+def analyze_market(ticker: str, interval: str = '15m') -> dict:
+    """Загружает свечи и возвращает рассчитанные индикаторы вместе с ценами и консенсусом."""
+    try:
+        binance_p = get_binance_price(ticker)
+    except Exception:
+        binance_p = None
+        
+    try:
+        bybit_p = get_bybit_price(ticker)
+    except Exception:
+        bybit_p = None
+        
+    if binance_p is None and bybit_p is None:
+        return {
+            'success': False,
+            'error': f"Не удалось получить цены с бирж для {ticker}"
+        }
+        
+    # Расчитываем консенсус
+    active_prices = [p for p in [binance_p, bybit_p] if p is not None]
+    consensus_price = sum(active_prices) / len(active_prices)
+    
+    try:
+        klines = get_klines(ticker, interval=interval, limit=100)
         close_prices = [float(kline[4]) for kline in klines]
         
         rsi_val = calculate_rsi(close_prices, 14)
         macd_data = calculate_macd(close_prices)
         ema50_val = calculate_ema(close_prices, 50)
         
+        tv_rec = get_tradingview_recommendation(ticker, interval=interval)
+        
         return {
             'success': True,
-            'price': current_price,
+            'price': consensus_price,
+            'binance_price': binance_p if binance_p else consensus_price,
+            'bybit_price': bybit_p if bybit_p else consensus_price,
             'rsi': rsi_val,
             'macd': macd_data,
             'ema50': ema50_val,
-            'prices_series': close_prices
+            'prices_series': close_prices,
+            'tradingview_recommendation': tv_rec
         }
     except Exception as e:
         print(f"Ошибка при анализе рынка для {ticker}: {e}")
