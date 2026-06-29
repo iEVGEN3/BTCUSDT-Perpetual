@@ -9,46 +9,36 @@ def allowed_gai_family():
 connection.allowed_gai_family = allowed_gai_family
 
 def get_binance_price(ticker: str) -> float:
-    """Получает текущую фьючерсную (или спотовую) цену на Binance."""
+    """Получает цену Binance через прокси Google Apps Script для обхода геоблока."""
     symbol = ticker.upper()
     if not symbol.endswith('USDT'):
         symbol = f"{symbol}USDT"
     
-    # 1. Попытка запроса к Futures API
     try:
-        url = f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}"
-        response = requests.get(url, timeout=5)
+        url = f"https://script.google.com/macros/s/AKfycbz2D6gLAkk7ZMPaC3BrZat9bNEr23d1S4TsQ69ZDvtozl_qa_Lm1VAPXVGFn60qTwSBEg/exec?binance_symbol={symbol}"
+        response = requests.get(url, timeout=10)
         if response.status_code == 200:
             return float(response.json()['price'])
     except Exception as e:
-        print(f"Исключение при запросе фьючерсной цены Binance для {symbol}: {e}")
-        
-    # 2. Попытка запроса к Spot API в качестве резерва
-    try:
-        url = f"https://api.binance.com/api/v3/ticker/price?symbol={symbol}"
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            return float(response.json()['price'])
-    except Exception as e:
-        print(f"Исключение при запросе спотовой цены Binance для {symbol}: {e}")
+        print(f"Исключение при запросе цены Binance через прокси для {symbol}: {e}")
         
     raise ValueError(f"Не удалось получить цену Binance для тикера {symbol}")
 
 def get_bybit_price(ticker: str) -> float:
-    """Получает текущую цену бессрочного фьючерса на Bybit."""
+    """Получает цену Bybit через прокси Google Apps Script для обхода геоблока."""
     symbol = ticker.upper()
     if not symbol.endswith('USDT'):
         symbol = f"{symbol}USDT"
     
-    url = f"https://api.bybit.com/v5/market/tickers?category=linear&symbol={symbol}"
     try:
-        response = requests.get(url, timeout=5)
+        url = f"https://script.google.com/macros/s/AKfycbz2D6gLAkk7ZMPaC3BrZat9bNEr23d1S4TsQ69ZDvtozl_qa_Lm1VAPXVGFn60qTwSBEg/exec?bybit_symbol={symbol}"
+        response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
             if data.get('retCode') == 0 and len(data.get('result', {}).get('list', [])) > 0:
                 return float(data['result']['list'][0]['lastPrice'])
     except Exception as e:
-        print(f"Исключение при запросе цены Bybit для {symbol}: {e}")
+        print(f"Исключение при запросе цены Bybit через прокси для {symbol}: {e}")
         
     raise ValueError(f"Не удалось получить цену Bybit для тикера {symbol}")
 
