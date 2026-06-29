@@ -653,12 +653,8 @@ if __name__ == '__main__':
     else:
         webhook_url = "https://glove-3-futures-coach-bot.hf.space/webhook"
         
-    try:
-        bot.remove_webhook()
-        bot.set_webhook(url=webhook_url, timeout=30)
-        print(f"Вебхук успішно встановлено на адресу: {webhook_url}")
-    except Exception as e:
-        print(f"Помилка встановлення вебхука Telegram: {e}")
+    # Вебхук встановлюється вручну з ПК один раз, щоб уникнути проблем з передачею urlencoded параметрів через проксі
+    print("Вебхук налаштований вручну. Пропускаємо автоматичне встановлення.")
         
     print("Бот успішно запущений в режимі Webhook і готов до роботи...")
     
