@@ -82,7 +82,8 @@ def run_network_diagnostics():
         "fapi.binance.com",
         "api.binance.com",
         "data-api.binance.vision",
-        "api.bybit.com"
+        "api.bybit.com",
+        "api.bytick.com"
     ]
     for host in hosts:
         try:
