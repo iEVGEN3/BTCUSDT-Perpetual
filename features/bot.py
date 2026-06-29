@@ -41,8 +41,18 @@ if not TOKEN:
 
 bot = telebot.TeleBot(TOKEN)
 
-# Перенаправлення всіх запитів через прокси-сервер Cloudflare Workers для обходу блокування
-telebot.apihelper.API_URL = "https://bitter-truth-1725.glove-shramko.workers.dev/bot{0}/{1}"
+# Перенаправлення всіх запитів через прокси-сервер Google Apps Script для обходу блокування
+telebot.apihelper.API_URL = "https://script.google.com/macros/s/AKfycbz2D6gLAkk7ZMPaC3BrZat9bNEr23d1S4TsQ69ZDvtozl_qa_Lm1VAPXVGFn60qTwSBEg/exec?token={0}&method={1}"
+
+# Кастомна функція скачування файлів через проксі
+def custom_download_file(file_path):
+    url = f"https://script.google.com/macros/s/AKfycbz2D6gLAkk7ZMPaC3BrZat9bNEr23d1S4TsQ69ZDvtozl_qa_Lm1VAPXVGFn60qTwSBEg/exec?token={TOKEN}&file={file_path}"
+    res = requests.get(url, timeout=30)
+    data = res.json()
+    import base64
+    return base64.b64decode(data['base64'])
+
+bot.download_file = custom_download_file
 
 # Налаштування тайм-аутів для запобігання помилок мережі на серверах Hugging Face
 telebot.apihelper.CONNECT_TIMEOUT = 60
@@ -362,7 +372,7 @@ def format_rich_arbitrage_message(arb_data):
 
 def send_rich_message(chat_id, html_content, reply_markup=None):
     """Отправляет Rich Message с поддержкой HTML форматирования (Bot API 10.1)."""
-    url = f"https://bitter-truth-1725.glove-shramko.workers.dev/bot{TOKEN}/sendRichMessage"
+    url = f"https://script.google.com/macros/s/AKfycbz2D6gLAkk7ZMPaC3BrZat9bNEr23d1S4TsQ69ZDvtozl_qa_Lm1VAPXVGFn60qTwSBEg/exec?token={TOKEN}&method=sendRichMessage"
     payload = {
         "chat_id": chat_id,
         "rich_message": {
