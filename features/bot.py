@@ -10,6 +10,13 @@ from telebot import types
 from dotenv import load_dotenv
 from groq import Groq
 
+# Принудительное использование IPv4 для обхода проблем с IPv6 на серверах Hugging Face
+import socket
+import urllib3.util.connection as connection
+def allowed_gai_family():
+    return socket.AF_INET
+connection.allowed_gai_family = allowed_gai_family
+
 # Загрузка конфигурации (поиск .env в текущей папке и всех родительских)
 def load_env_file():
     curr = os.path.dirname(os.path.abspath(__file__))

@@ -1,6 +1,13 @@
 import requests
 from tradingview_ta import TA_Handler, Interval
 
+# Принудительное использование IPv4 для обхода проблем с IPv6 на серверах Hugging Face
+import socket
+import urllib3.util.connection as connection
+def allowed_gai_family():
+    return socket.AF_INET
+connection.allowed_gai_family = allowed_gai_family
+
 def get_binance_price(ticker: str) -> float:
     """Получает текущую фьючерсную (или спотовую) цену на Binance."""
     symbol = ticker.upper()

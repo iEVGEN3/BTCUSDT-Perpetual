@@ -6,6 +6,13 @@ import google.generativeai as genai
 from groq import Groq
 from market_data import analyze_market, get_binance_price, get_bybit_price
 
+# Принудительное использование IPv4 для обхода проблем с IPv6 на серверах Hugging Face
+import socket
+import urllib3.util.connection as connection
+def allowed_gai_family():
+    return socket.AF_INET
+connection.allowed_gai_family = allowed_gai_family
+
 # Загружаем переменные окружения из .env (поиск .env в текущей папке и всех родительских)
 def load_env_file():
     curr = os.path.dirname(os.path.abspath(__file__))
