@@ -41,6 +41,9 @@ if not TOKEN:
 
 bot = telebot.TeleBot(TOKEN)
 
+# Перенаправлення всіх запитів через прокси-сервер Cloudflare Workers для обходу блокування
+telebot.apihelper.API_URL = "https://bitter-truth-1725.glove-shramko.workers.dev/bot{0}/{1}"
+
 # Налаштування тайм-аутів для запобігання помилок мережі на серверах Hugging Face
 telebot.apihelper.CONNECT_TIMEOUT = 60
 telebot.apihelper.READ_TIMEOUT = 60
@@ -332,7 +335,7 @@ def format_rich_arbitrage_message(arb_data):
 
 def send_rich_message(chat_id, html_content, reply_markup=None):
     """Отправляет Rich Message с поддержкой HTML форматирования (Bot API 10.1)."""
-    url = f"https://api.telegram.org/bot{TOKEN}/sendRichMessage"
+    url = f"https://bitter-truth-1725.glove-shramko.workers.dev/bot{TOKEN}/sendRichMessage"
     payload = {
         "chat_id": chat_id,
         "rich_message": {
