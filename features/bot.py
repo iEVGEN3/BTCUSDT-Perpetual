@@ -81,6 +81,7 @@ def run_network_diagnostics():
         "bitter-truth-1725.glove-shramko.workers.dev",
         "fapi.binance.com",
         "api.binance.com",
+        "data-api.binance.vision",
         "api.bybit.com"
     ]
     for host in hosts:
