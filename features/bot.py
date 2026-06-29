@@ -80,6 +80,7 @@ def run_network_diagnostics():
         "api.telegram.org",
         "bitter-truth-1725.glove-shramko.workers.dev",
         "fapi.binance.com",
+        "api.binance.com",
         "api.bybit.com"
     ]
     for host in hosts:
