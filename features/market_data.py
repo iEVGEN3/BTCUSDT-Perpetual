@@ -9,44 +9,73 @@ def allowed_gai_family():
 connection.allowed_gai_family = allowed_gai_family
 
 def get_binance_price(ticker: str) -> float:
-    """Получает цену Binance через официальный публичный эндпоинт Binance Vision (не заблокирован в HF)."""
+    """Получает цену Binance через TradingView или резервный эндпоинт Binance Vision (не заблокирован в HF)."""
     symbol = ticker.upper()
     if not symbol.endswith('USDT'):
         symbol = f"{symbol}USDT"
     
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json"
-    }
+    # 1. Попытка через TradingView
+    try:
+        url = "https://scanner.tradingview.com/crypto/scan"
+        payload = {
+            "symbols": {"tickers": [f"BINANCE:{symbol}"]},
+            "columns": ["close"]
+        }
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        res = requests.post(url, json=payload, headers=headers, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            if data.get('data') and len(data['data']) > 0:
+                return float(data['data'][0]['d'][0])
+    except Exception as e:
+        print(f"Исключение при запросе цены Binance через TV для {symbol}: {e}")
+    
+    # 2. Резервная попытка через прямой data-api
     try:
         url = f"https://data-api.binance.vision/api/v3/ticker/price?symbol={symbol}"
-        response = requests.get(url, headers=headers, timeout=10)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        response = requests.get(url, headers=headers, timeout=5)
         if response.status_code == 200:
             return float(response.json()['price'])
     except Exception as e:
-        print(f"Исключение при запросе цены Binance для {symbol}: {e}")
+        print(f"Резервное исключение Binance для {symbol}: {e}")
         
     raise ValueError(f"Не удалось получить цену Binance для тикера {symbol}")
 
 def get_bybit_price(ticker: str) -> float:
-    """Получает цену Bybit напрямую (не заблокирован в HF)."""
+    """Получает цену Bybit через TradingView с фоллбеком для TON."""
     symbol = ticker.upper()
     if not symbol.endswith('USDT'):
         symbol = f"{symbol}USDT"
     
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json"
-    }
+    # 1. Попытка через TradingView (работает для BTC, ETH, SOL)
     try:
-        url = f"https://api.bybit.com/v5/market/tickers?category=linear&symbol={symbol}"
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('retCode') == 0 and len(data.get('result', {}).get('list', [])) > 0:
-                return float(data['result']['list'][0]['lastPrice'])
+        url = "https://scanner.tradingview.com/crypto/scan"
+        payload = {
+            "symbols": {"tickers": [f"BYBIT:{symbol}"]},
+            "columns": ["close"]
+        }
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        res = requests.post(url, json=payload, headers=headers, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            if data.get('data') and len(data['data']) > 0:
+                return float(data['data'][0]['d'][0])
     except Exception as e:
-        print(f"Исключение при запросе цены Bybit для {symbol}: {e}")
+        print(f"Исключение при запросе цены Bybit через TV для {symbol}: {e}")
+    
+    # 2. Фоллбек для TON на цену Binance (так как TON на Bybit не индексируется в TV сканере)
+    if ticker.upper() == 'TON':
+        try:
+            return get_binance_price(ticker)
+        except Exception:
+            pass
         
     raise ValueError(f"Не удалось получить цену Bybit для тикера {symbol}")
 
