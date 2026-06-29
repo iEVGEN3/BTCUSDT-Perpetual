@@ -1,0 +1,10 @@
+services:
+  trading-bot:
+    build: .
+    container_name: trading_bot_app
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      # Монтируем всю папку features, чтобы БД сохранялась на хосте, а код можно было легко обновлять
+      - ./features:/app/features
