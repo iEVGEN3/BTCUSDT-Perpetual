@@ -62,6 +62,33 @@ try:
 except Exception as e:
     print(f"Помилка при налаштуванні команд меню: {e}")
 
+# Діагностика мережі на старті
+def run_network_diagnostics():
+    print("=== ДІАГНОСТИКА МЕРЕЖІ ===")
+    hosts = [
+        "google.com",
+        "api.telegram.org",
+        "bitter-truth-1725.glove-shramko.workers.dev",
+        "fapi.binance.com",
+        "api.bybit.com"
+    ]
+    for host in hosts:
+        try:
+            start_t = time.time()
+            ip = socket.gethostbyname(host)
+            conn_t = time.time() - start_t
+            print(f"DNS: {host} -> {ip} (за {conn_t:.3f}с)")
+            
+            # Спроба підключення
+            test_url = f"https://{host}"
+            res = requests.get(test_url, timeout=5)
+            print(f"HTTP GET {test_url} -> Статус {res.status_code}")
+        except Exception as err:
+            print(f"ПОМИЛКА {host}: {err}")
+    print("=========================")
+
+run_network_diagnostics()
+
 # Импорт наших модулей (находятся в той же папке features)
 import database
 from signals import generate_signal, check_arbitrage
