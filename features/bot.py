@@ -300,7 +300,13 @@ def handle_voice_message(message):
         file_url = f"https://api.telegram.org/file/bot{TOKEN}/{file_info.file_path}"
         res = requests.get(file_url, timeout=30)
         
-        voice_filename = f"voice_{message.chat.id}_{int(time.time())}.ogg"
+        # Створюємо тимчасову папку для голосових повідомлень (на Railway використовуємо /tmp)
+        tmp_dir = "/tmp"
+        if not os.path.exists(tmp_dir):
+            tmp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.tmp')
+            os.makedirs(tmp_dir, exist_ok=True)
+            
+        voice_filename = os.path.join(tmp_dir, f"voice_{message.chat.id}_{int(time.time())}.ogg")
         with open(voice_filename, 'wb') as f:
             f.write(res.content)
             
