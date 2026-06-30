@@ -21,10 +21,10 @@ def get_binance_price(ticker: str) -> float:
         res = requests.get(url, timeout=10)
         if res.status_code == 200:
             return float(res.json()['price'])
-    except:
-        pass
-    raise ValueError(f"Цена Binance не получена для {ticker}")
-
+    except Exception as e:
+        print(f"Прокси цена ошибка: {e}")
+    raise ValueError("Цена не получена")
+    
 def get_bybit_price(ticker: str) -> float:
     # Bybit пока без прокси, или добавь позже
     try:
@@ -53,10 +53,10 @@ def get_klines(ticker: str, interval: str = '15m', limit: int = 100) -> list:
         if res.status_code == 200:
             data = res.json()
             if isinstance(data, list) and len(data) >= 20:
-                print(f"✅ Клайны через прокси OK")
+                print(f"✅ Клайны через Worker OK")
                 return data
     except Exception as e:
-        print(f"Прокси клайны ошибка: {e}")
+        print(f"Worker клайны ошибка: {e}")
     return []
 
 # Остальные функции (EMA, RSI, MACD, analyze_market) оставь как в предыдущей версии
