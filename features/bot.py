@@ -90,17 +90,10 @@ MAJOR_COINS = ['BTC', 'ETH', 'SOL', 'TON', 'DOGE', 'NOT']
 
 def get_main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    buttons = [
-        types.KeyboardButton("📈 Сигнал BTC"),
-        types.KeyboardButton("📈 Сигнал ETH"),
-        types.KeyboardButton("📈 Сигнал SOL"),
-        types.KeyboardButton("📈 Сигнал TON"),
-        types.KeyboardButton("🔔 Сигнали / Алерти"),
-        types.KeyboardButton("🔕 Відписатися від сигналів"),
-        types.KeyboardButton("🚨 Арбітраж / Алерти"),
-        types.KeyboardButton("🔕 Відписатися від арбітражу")
-    ]
-    markup.add(*buttons)
+    markup.row(types.KeyboardButton("📈 Сигнал BTC"), types.KeyboardButton("📈 Сигнал ETH"))
+    markup.row(types.KeyboardButton("📈 Сигнал SOL"), types.KeyboardButton("📈 Сигнал TON"))
+    markup.row(types.KeyboardButton("🔔 Сигнали"), types.KeyboardButton("🔕 Відписка від сигн."))
+    markup.row(types.KeyboardButton("🚨 Арбітраж"), types.KeyboardButton("🔕 Відписка від арб."))
     return markup
 
 @bot.message_handler(commands=['start', 'help'])
@@ -119,7 +112,7 @@ def send_welcome(message):
 
 # --- Обробка підписок ---
 
-@bot.message_handler(func=lambda message: message.text == "🔔 Сигнали / Алерти")
+@bot.message_handler(func=lambda message: message.text in ["🔔 Сигнали / Алерти", "🔔 Сигнали"])
 @bot.message_handler(commands=['subscribe'])
 def handle_subscribe(message):
     chat_id = message.chat.id
@@ -138,7 +131,7 @@ def handle_subscribe(message):
         else:
             bot.send_message(chat_id, "❌ Не вдалося зберегти підписку. Спробуйте пізніше.", reply_markup=get_main_keyboard())
 
-@bot.message_handler(func=lambda message: message.text == "🔕 Відписатися від сигналів")
+@bot.message_handler(func=lambda message: message.text in ["🔕 Відписатися від сигналів", "🔕 Відписка від сигн."])
 @bot.message_handler(commands=['unsubscribe'])
 def handle_unsubscribe(message):
     chat_id = message.chat.id
@@ -150,7 +143,7 @@ def handle_unsubscribe(message):
         else:
             bot.send_message(chat_id, "❌ Сталася помилка при відписці.", reply_markup=get_main_keyboard())
 
-@bot.message_handler(func=lambda message: message.text == "🚨 Арбітраж / Алерти")
+@bot.message_handler(func=lambda message: message.text in ["🚨 Арбітраж / Алерти", "🚨 Арбітраж"])
 @bot.message_handler(commands=['subscribe_arbitrage'])
 def handle_subscribe_arbitrage(message):
     chat_id = message.chat.id
@@ -159,6 +152,27 @@ def handle_subscribe_arbitrage(message):
         bot.send_message(chat_id, "😊 Ви вже підписані на арбітражні алерти!", reply_markup=get_main_keyboard())
     else:
         if database.subscribe_arbitrage(chat_id, username):
+            bot.send_message(
+                chat_id,
+                "🎉 <b>Ви успішно підписалися на арбітражні алерти.</b>\n"
+                "Я буду моніторити різницю цін на Binance та Bybit та сповіщу, як тільки спред перевищить 0.15%!",
+                parse_mode='HTML',
+                reply_markup=get_main_keyboard()
+            )
+        else:
+            bot.send_message(chat_id, "❌ Не вдалося зберегти підписку. Спробуйте пізніше.", reply_markup=get_main_keyboard())
+
+@bot.message_handler(func=lambda message: message.text in ["🔕 Відписатися від арбітражу", "🔕 Відписка від арб."])
+@bot.message_handler(commands=['unsubscribe_arbitrage'])
+def handle_unsubscribe_arbitrage(message):
+    chat_id = message.chat.id
+    if not database.is_arbitrage_subscribed(chat_id):
+        bot.send_message(chat_id, "🤷 Ви не підписані на арбітражні алерти.", reply_markup=get_main_keyboard())
+    else:
+        if database.unsubscribe_arbitrage(chat_id):
+            bot.send_message(chat_id, "😴 Ви успішно відключили арбітражні алерти.", reply_markup=get_main_keyboard())
+        else:
+            bot.send_message(chat_id, "❌ Сталася помилка при відписці.", reply_markup=get_main_keyboard())  if database.subscribe_arbitrage(chat_id, username):
             bot.send_message(
                 chat_id,
                 "🎉 <b>Ви успішно підписалися на арбітражні алерти.</b>\n"
