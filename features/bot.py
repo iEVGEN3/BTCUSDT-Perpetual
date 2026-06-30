@@ -110,14 +110,14 @@ def alert_scheduler_loop():
         print("Проверка сигналов...")
 
 if __name__ == '__main__':
-    print("Запуск в режиме polling (простой режим)...")
+    print("Запуск бота в режиме polling (простой режим)...")
     
-    # Запуск планировщиков
+    # Планировщики
     scheduler_thread = threading.Thread(target=alert_scheduler_loop, daemon=True)
     scheduler_thread.start()
     
     arbitrage_thread = threading.Thread(target=arbitrage_scheduler_loop, daemon=True)
     arbitrage_thread.start()
     
-    # Простой polling — это должно работать
+    # Запуск polling
     bot.infinity_polling(none_stop=True)
