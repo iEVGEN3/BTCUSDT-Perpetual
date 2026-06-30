@@ -219,13 +219,21 @@ def get_rich_alternatives_html(current_ticker):
         )
 
 def format_rich_signal_message(sig_data):
-    """Форматує сигнал у красивий Rich HTML (дозволені теги Telegram)."""
+    """Форматує сигнал у красивий Rich HTML (дозволені теги Telegram) залежно від типу рекомендації."""
     clean_ticker = sig_data['ticker'].replace('USDT', '')
     recommendation = sig_data['signal']
     
-    alt_block = ""
-    if sig_data['signal'] == "⏳ ЧЕКАЙ":
+    if recommendation == "⏳ ЧЕКАЙ":
         alt_block = get_rich_alternatives_html(clean_ticker)
+        html = (
+            f"<b>📈 Актив: {clean_ticker}</b>\n"
+            f"Поточна консенсус-ціна: <b>${sig_data['price']}</b>\n"
+            f"Рекомендація: <b>{recommendation}</b>\n"
+            "-------------------------------------\n"
+            f"<blockquote><b>Обґрунтування:</b> {sig_data['metaphor']}</blockquote>\n"
+            f"{alt_block}"
+        )
+        return html
         
     steps_formatted = "\n".join([f"{i+1}. {step}" for i, step in enumerate(sig_data['steps'])])
     
@@ -245,8 +253,7 @@ def format_rich_signal_message(sig_data):
         f"📊 <b>Параметри ризику:</b>\n"
         f"• Рекомендований ризик: <b>0.5–1% від депозиту</b>\n"
         f"• Впевненість моделі: <b>{sig_data['confidence']}%</b>\n"
-        f"• Резюме: <i>{sig_data['one_liner']}</i>\n"
-        f"{alt_block}"
+        f"• Резюме: <i>{sig_data['one_liner']}</i>"
     )
     return html
 
