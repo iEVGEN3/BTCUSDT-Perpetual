@@ -1,3 +1,4 @@
+PROXY_BASE = "https://binance-proxy.glove-shramko.workers.dev"
 import requests
 from tradingview_ta import TA_Handler, Interval
 import time
