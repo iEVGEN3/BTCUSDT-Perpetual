@@ -172,27 +172,6 @@ def handle_unsubscribe_arbitrage(message):
         if database.unsubscribe_arbitrage(chat_id):
             bot.send_message(chat_id, "😴 Ви успішно відключили арбітражні алерти.", reply_markup=get_main_keyboard())
         else:
-            bot.send_message(chat_id, "❌ Сталася помилка при відписці.", reply_markup=get_main_keyboard())  if database.subscribe_arbitrage(chat_id, username):
-            bot.send_message(
-                chat_id,
-                "🎉 <b>Ви успішно підписалися на арбітражні алерти.</b>\n"
-                "Я буду моніторити різницю цін на Binance та Bybit та сповіщу, як тільки спред перевищить 0.15%!",
-                parse_mode='HTML',
-                reply_markup=get_main_keyboard()
-            )
-        else:
-            bot.send_message(chat_id, "❌ Не вдалося зберегти підписку. Спробуйте пізніше.", reply_markup=get_main_keyboard())
-
-@bot.message_handler(func=lambda message: message.text == "🔕 Відписатися від арбітражу")
-@bot.message_handler(commands=['unsubscribe_arbitrage'])
-def handle_unsubscribe_arbitrage(message):
-    chat_id = message.chat.id
-    if not database.is_arbitrage_subscribed(chat_id):
-        bot.send_message(chat_id, "🤷 Ви не підписані на арбітражні алерти.", reply_markup=get_main_keyboard())
-    else:
-        if database.unsubscribe_arbitrage(chat_id):
-            bot.send_message(chat_id, "😴 Ви успішно відключили арбітражні алерти.", reply_markup=get_main_keyboard())
-        else:
             bot.send_message(chat_id, "❌ Сталася помилка при відписці.", reply_markup=get_main_keyboard())
 
 # --- Обробка сигналів та повідомлень ---
@@ -233,21 +212,13 @@ def get_rich_alternatives_html(current_ticker):
         )
 
 def format_rich_signal_message(sig_data):
-    """Форматує сигнал у красивий Rich HTML (дозволені теги Telegram) залежно від типу рекомендації."""
+    """Форматує сигнал у красивий Rich HTML (дозволені теги Telegram)."""
     clean_ticker = sig_data['ticker'].replace('USDT', '')
     recommendation = sig_data['signal']
     
-    if recommendation == "⏳ ЧЕКАЙ":
+    alt_block = ""
+    if sig_data['signal'] == "⏳ ЧЕКАЙ":
         alt_block = get_rich_alternatives_html(clean_ticker)
-        html = (
-            f"<b>📈 Актив: {clean_ticker}</b>\n"
-            f"Поточна консенсус-ціна: <b>${sig_data['price']}</b>\n"
-            f"Рекомендація: <b>{recommendation}</b>\n"
-            "-------------------------------------\n"
-            f"<blockquote><b>Обґрунтування:</b> {sig_data['metaphor']}</blockquote>\n"
-            f"{alt_block}"
-        )
-        return html
         
     steps_formatted = "\n".join([f"{i+1}. {step}" for i, step in enumerate(sig_data['steps'])])
     
@@ -267,7 +238,8 @@ def format_rich_signal_message(sig_data):
         f"📊 <b>Параметри ризику:</b>\n"
         f"• Рекомендований ризик: <b>0.5–1% від депозиту</b>\n"
         f"• Впевненість моделі: <b>{sig_data['confidence']}%</b>\n"
-        f"• Резюме: <i>{sig_data['one_liner']}</i>"
+        f"• Резюме: <i>{sig_data['one_liner']}</i>\n"
+        f"{alt_block}"
     )
     return html
 
