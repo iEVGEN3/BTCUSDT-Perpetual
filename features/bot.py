@@ -314,6 +314,19 @@ def send_rich_message(chat_id, html_content, reply_markup=None):
         clean_text = re.sub(r'<[^>]+>', '', html_content)
         return bot.send_message(chat_id, clean_text, reply_markup=reply_markup)
 
+def edit_rich_message(chat_id, message_id, html_content, reply_markup=None):
+    """Редагує HTML-повідомлення в Telegram з безпечним фоллбеком."""
+    try:
+        return bot.edit_message_text(html_content, chat_id=chat_id, message_id=message_id, parse_mode='HTML', reply_markup=reply_markup)
+    except Exception as e:
+        print(f"Помилка редагування HTML: {e}")
+        import re
+        clean_text = re.sub(r'<[^>]+>', '', html_content)
+        try:
+            return bot.edit_message_text(clean_text, chat_id=chat_id, message_id=message_id, reply_markup=reply_markup)
+        except Exception as e2:
+            print(f"Помилка редагування чистого тексту: {e2}")
+
 @bot.message_handler(content_types=['voice'])
 def handle_voice_message(message):
     """Отримує голосове повідомлення, трансформує в текст через Groq Whisper та генерує сигнал."""

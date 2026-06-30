@@ -44,3 +44,9 @@
   - Rewrote signal logic in `features/signals.py` to count matches and trigger signals if $\ge 3$ conditions align (consensus pricing).
   - Restored Groq Whisper voice transcription and rich HTML messages in Ukrainian.
 - **Status**: Verified locally with all tests passing, ready for push and deployment.
+
+## [2026-06-30] edit_rich_message Bugfix
+- **Action**: Defined the missing `edit_rich_message` helper in `features/bot.py`. This function:
+  - Safely edits inline messages in Telegram using HTML parsing.
+  - Implements a fallback to plain text parsing if HTML tags cause formatting exceptions.
+- **Status**: Completed and verified.
