@@ -90,10 +90,21 @@ MAJOR_COINS = ['BTC', 'ETH', 'SOL', 'TON', 'DOGE', 'NOT']
 
 def get_main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.row(types.KeyboardButton("📈 Сигнал BTC"), types.KeyboardButton("📈 Сигнал ETH"))
-    markup.row(types.KeyboardButton("📈 Сигнал SOL"), types.KeyboardButton("📈 Сигнал TON"))
-    markup.row(types.KeyboardButton("🔔 Сигнали"), types.KeyboardButton("🔕 Відписка від сигн."))
-    markup.row(types.KeyboardButton("🚨 Арбітраж"), types.KeyboardButton("🔕 Відписка від арб."))
+    markup.row(types.KeyboardButton("📊 Сигнали"), types.KeyboardButton("🔔 Сповіщення"))
+    return markup
+
+def get_signals_keyboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.row(types.KeyboardButton("📈 BTC"), types.KeyboardButton("📈 ETH"))
+    markup.row(types.KeyboardButton("📈 SOL"), types.KeyboardButton("📈 TON"))
+    markup.row(types.KeyboardButton("⬅️ Назад"))
+    return markup
+
+def get_notifications_keyboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.row(types.KeyboardButton("🔔 Ф'ючерси"), types.KeyboardButton("🔕 Ф'ючерси"))
+    markup.row(types.KeyboardButton("🔔 Арбітраж"), types.KeyboardButton("🔕 Арбітраж"))
+    markup.row(types.KeyboardButton("⬅️ Назад"))
     return markup
 
 @bot.message_handler(commands=['start', 'help'])
@@ -110,15 +121,29 @@ def send_welcome(message):
     )
     send_rich_message(message.chat.id, welcome_text, reply_markup=get_main_keyboard())
 
+# --- Навігаційне меню ---
+
+@bot.message_handler(func=lambda message: message.text == "📊 Сигнали")
+def show_signals_menu(message):
+    bot.send_message(message.chat.id, "📊 Оберіть актив для отримання сигналу:", reply_markup=get_signals_keyboard())
+
+@bot.message_handler(func=lambda message: message.text == "🔔 Сповіщення")
+def show_notifications_menu(message):
+    bot.send_message(message.chat.id, "🔔 Налаштування сповіщень про сигнали та арбітраж:", reply_markup=get_notifications_keyboard())
+
+@bot.message_handler(func=lambda message: message.text == "⬅️ Назад")
+def show_main_menu(message):
+    bot.send_message(message.chat.id, "🏠 Головне меню:", reply_markup=get_main_keyboard())
+
 # --- Обробка підписок ---
 
-@bot.message_handler(func=lambda message: message.text in ["🔔 Сигнали / Алерти", "🔔 Сигнали"])
+@bot.message_handler(func=lambda message: message.text == "🔔 Ф'ючерси")
 @bot.message_handler(commands=['subscribe'])
 def handle_subscribe(message):
     chat_id = message.chat.id
     username = message.from_user.username
     if database.is_subscribed(chat_id):
-        bot.send_message(chat_id, "😊 Ви вже підписані на торгові алерти!", reply_markup=get_main_keyboard())
+        bot.send_message(chat_id, "😊 Ви вже підписані на торгові алерти!", reply_markup=get_notifications_keyboard())
     else:
         if database.subscribe_user(chat_id, username):
             bot.send_message(
@@ -126,30 +151,30 @@ def handle_subscribe(message):
                 "🎉 <b>Ви успішно підписалися на торгові алерти.</b>\n"
                 "Я надішлю вам сповіщення, як тільки з'явиться сильний сигнал по основних активах!",
                 parse_mode='HTML',
-                reply_markup=get_main_keyboard()
+                reply_markup=get_notifications_keyboard()
             )
         else:
-            bot.send_message(chat_id, "❌ Не вдалося зберегти підписку. Спробуйте пізніше.", reply_markup=get_main_keyboard())
+            bot.send_message(chat_id, "❌ Не вдалося зберегти підписку. Спробуйте пізніше.", reply_markup=get_notifications_keyboard())
 
-@bot.message_handler(func=lambda message: message.text in ["🔕 Відписатися від сигналів", "🔕 Відписка від сигн."])
+@bot.message_handler(func=lambda message: message.text == "🔕 Ф'ючерси")
 @bot.message_handler(commands=['unsubscribe'])
 def handle_unsubscribe(message):
     chat_id = message.chat.id
     if not database.is_subscribed(chat_id):
-        bot.send_message(chat_id, "🤷 Ви не підписані на алерти.", reply_markup=get_main_keyboard())
+        bot.send_message(chat_id, "🤷 Ви не підписані на алерти.", reply_markup=get_notifications_keyboard())
     else:
         if database.unsubscribe_user(chat_id):
-            bot.send_message(chat_id, "😴 Ви відписалися від розсилки сигналів.", reply_markup=get_main_keyboard())
+            bot.send_message(chat_id, "😴 Ви відписалися від розсилки сигналів.", reply_markup=get_notifications_keyboard())
         else:
-            bot.send_message(chat_id, "❌ Сталася помилка при відписці.", reply_markup=get_main_keyboard())
+            bot.send_message(chat_id, "❌ Сталася помилка при відписці.", reply_markup=get_notifications_keyboard())
 
-@bot.message_handler(func=lambda message: message.text in ["🚨 Арбітраж / Алерти", "🚨 Арбітраж"])
+@bot.message_handler(func=lambda message: message.text == "🔔 Арбітраж")
 @bot.message_handler(commands=['subscribe_arbitrage'])
 def handle_subscribe_arbitrage(message):
     chat_id = message.chat.id
     username = message.from_user.username
     if database.is_arbitrage_subscribed(chat_id):
-        bot.send_message(chat_id, "😊 Ви вже підписані на арбітражні алерти!", reply_markup=get_main_keyboard())
+        bot.send_message(chat_id, "😊 Ви вже підписані на арбітражні алерти!", reply_markup=get_notifications_keyboard())
     else:
         if database.subscribe_arbitrage(chat_id, username):
             bot.send_message(
@@ -157,22 +182,22 @@ def handle_subscribe_arbitrage(message):
                 "🎉 <b>Ви успішно підписалися на арбітражні алерти.</b>\n"
                 "Я буду моніторити різницю цін на Binance та Bybit та сповіщу, як тільки спред перевищить 0.15%!",
                 parse_mode='HTML',
-                reply_markup=get_main_keyboard()
+                reply_markup=get_notifications_keyboard()
             )
         else:
-            bot.send_message(chat_id, "❌ Не вдалося зберегти підписку. Спробуйте пізніше.", reply_markup=get_main_keyboard())
+            bot.send_message(chat_id, "❌ Не вдалося зберегти підписку. Спробуйте пізніше.", reply_markup=get_notifications_keyboard())
 
-@bot.message_handler(func=lambda message: message.text in ["🔕 Відписатися від арбітражу", "🔕 Відписка від арб."])
+@bot.message_handler(func=lambda message: message.text == "🔕 Арбітраж")
 @bot.message_handler(commands=['unsubscribe_arbitrage'])
 def handle_unsubscribe_arbitrage(message):
     chat_id = message.chat.id
     if not database.is_arbitrage_subscribed(chat_id):
-        bot.send_message(chat_id, "🤷 Ви не підписані на арбітражні алерти.", reply_markup=get_main_keyboard())
+        bot.send_message(chat_id, "🤷 Ви не підписані на арбітражні алерти.", reply_markup=get_notifications_keyboard())
     else:
         if database.unsubscribe_arbitrage(chat_id):
-            bot.send_message(chat_id, "😴 Ви успішно відключили арбітражні алерти.", reply_markup=get_main_keyboard())
+            bot.send_message(chat_id, "😴 Ви успішно відключили арбітражні алерти.", reply_markup=get_notifications_keyboard())
         else:
-            bot.send_message(chat_id, "❌ Сталася помилка при відписці.", reply_markup=get_main_keyboard())
+            bot.send_message(chat_id, "❌ Сталася помилка при відписці.", reply_markup=get_notifications_keyboard())
 
 # --- Обробка сигналів та повідомлень ---
 
@@ -357,7 +382,7 @@ def handle_voice_message(message):
             return
             
         formatted_msg = format_rich_signal_message(sig_res)
-        send_rich_message(message.chat.id, formatted_msg, reply_markup=get_main_keyboard())
+        send_rich_message(message.chat.id, formatted_msg, reply_markup=get_signals_keyboard())
         
     except Exception as e:
         print(f"Помилка обробки голосового повідомлення: {e}")
@@ -385,7 +410,7 @@ def handle_ticker_request(message):
         return
         
     formatted_msg = format_rich_signal_message(sig_res)
-    send_rich_message(message.chat.id, formatted_msg, reply_markup=get_main_keyboard())
+    send_rich_message(message.chat.id, formatted_msg, reply_markup=get_signals_keyboard())
 
 # --- Фоновий планувальник алертов ---
 
