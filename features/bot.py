@@ -517,157 +517,67 @@ def handle_callback_query(call):
         pass
         
     if data == "menu_main":
-        try:
-            bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=message_id,
-                text="🏠 <b>Головне меню:</b>",
-                parse_mode='HTML',
-                reply_markup=get_main_keyboard()
-            )
-        except:
-            bot.send_message(chat_id, "🏠 <b>Головне меню:</b>", parse_mode='HTML', reply_markup=get_main_keyboard())
+        edit_rich_message(chat_id, message_id, "🏠 <b>Головне меню:</b>", reply_markup=get_main_keyboard())
             
     elif data == "menu_signals":
-        try:
-            bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=message_id,
-                text="📊 <b>Оберіть актив для отримання сигналу або надішліть назву монети голосом/текстом:</b>",
-                parse_mode='HTML',
-                reply_markup=get_signals_keyboard()
-            )
-        except:
-            bot.send_message(chat_id, "📊 <b>Оберіть актив для отримання сигналу або надішліть назву монети голосом/текстом:</b>", parse_mode='HTML', reply_markup=get_signals_keyboard())
+        edit_rich_message(chat_id, message_id, "📊 <b>Оберіть актив для отримання сигналу або надішліть назву монети голосом/текстом:</b>", reply_markup=get_signals_keyboard())
             
     elif data == "menu_notifications":
-        try:
-            bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=message_id,
-                text="🔔 <b>Налаштування сповіщень про сигнали та арбітраж:</b>",
-                parse_mode='HTML',
-                reply_markup=get_notifications_keyboard()
-            )
-        except:
-            bot.send_message(chat_id, "🔔 <b>Налаштування сповіщень про сигнали та арбітраж:</b>", parse_mode='HTML', reply_markup=get_notifications_keyboard())
+        edit_rich_message(chat_id, message_id, "🔔 <b>Налаштування сповіщень про сигнали та арбітраж:</b>", reply_markup=get_notifications_keyboard())
             
     elif data.startswith("sig_"):
         ticker = data.split("_")[1]
         bot.send_chat_action(chat_id, 'typing')
         sig_res = generate_signal(ticker)
         if not sig_res['success']:
-            try:
-                bot.edit_message_text(
-                    chat_id=chat_id,
-                    message_id=message_id,
-                    text="❌ Ринковий аналізатор тимчасово недоступний.",
-                    reply_markup=get_signals_keyboard()
-                )
-            except:
-                bot.send_message(chat_id, "❌ Ринковий аналізатор тимчасово недоступний.", reply_markup=get_signals_keyboard())
+            edit_rich_message(chat_id, message_id, "❌ Ринковий аналізатор тимчасово недоступний.", reply_markup=get_signals_keyboard())
             return
         formatted_msg = format_rich_signal_message(sig_res)
-        try:
-            bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=message_id,
-                text=formatted_msg,
-                parse_mode='HTML',
-                reply_markup=get_signals_keyboard()
-            )
-        except:
-            send_rich_message(chat_id, formatted_msg, reply_markup=get_signals_keyboard())
+        edit_rich_message(chat_id, message_id, formatted_msg, reply_markup=get_signals_keyboard())
         
     elif data == "sub_futures":
         if database.is_subscribed(chat_id):
-            text = "😊 Ви вже підписані на торгові алерти!"
-            try:
-                bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=get_notifications_keyboard())
-            except:
-                bot.send_message(chat_id, text, reply_markup=get_notifications_keyboard())
+            edit_rich_message(chat_id, message_id, "😊 Ви вже підписані на торгові алерти!", reply_markup=get_notifications_keyboard())
         else:
             if database.subscribe_user(chat_id, username):
                 text = (
                     "🎉 <b>Ви успішно підписалися на торгові алерти.</b>\n"
                     "Я надішлю вам сповіщення, як тільки з'явиться сильний сигнал по основних активах!"
                 )
-                try:
-                    bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, parse_mode='HTML', reply_markup=get_notifications_keyboard())
-                except:
-                    bot.send_message(chat_id, text, parse_mode='HTML', reply_markup=get_notifications_keyboard())
+                edit_rich_message(chat_id, message_id, text, reply_markup=get_notifications_keyboard())
             else:
-                text = "❌ Не вдалося зберегти підписку."
-                try:
-                    bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=get_notifications_keyboard())
-                except:
-                    bot.send_message(chat_id, text, reply_markup=get_notifications_keyboard())
+                edit_rich_message(chat_id, message_id, "❌ Не вдалося зберегти підписку.", reply_markup=get_notifications_keyboard())
                 
     elif data == "unsub_futures":
         if not database.is_subscribed(chat_id):
-            text = "🤷 Ви не підписані на алерти."
-            try:
-                bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=get_notifications_keyboard())
-            except:
-                bot.send_message(chat_id, text, reply_markup=get_notifications_keyboard())
+            edit_rich_message(chat_id, message_id, "🤷 Ви не підписані на алерти.", reply_markup=get_notifications_keyboard())
         else:
             if database.unsubscribe_user(chat_id):
-                text = "😴 Ви відписалися від розсилки сигналів."
-                try:
-                    bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=get_notifications_keyboard())
-                except:
-                    bot.send_message(chat_id, text, reply_markup=get_notifications_keyboard())
+                edit_rich_message(chat_id, message_id, "😴 Ви відписалися від розсилки сигналів.", reply_markup=get_notifications_keyboard())
             else:
-                text = "❌ Сталася помилка при відписці."
-                try:
-                    bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=get_notifications_keyboard())
-                except:
-                    bot.send_message(chat_id, text, reply_markup=get_notifications_keyboard())
+                edit_rich_message(chat_id, message_id, "❌ Сталася помилка при відписці.", reply_markup=get_notifications_keyboard())
                 
     elif data == "sub_arbitrage":
         if database.is_arbitrage_subscribed(chat_id):
-            text = "😊 Ви вже підписані на арбітражні алерти!"
-            try:
-                bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=get_notifications_keyboard())
-            except:
-                bot.send_message(chat_id, text, reply_markup=get_notifications_keyboard())
+            edit_rich_message(chat_id, message_id, "😊 Ви вже підписані на арбітражні алерти!", reply_markup=get_notifications_keyboard())
         else:
             if database.subscribe_arbitrage(chat_id, username):
                 text = (
                     "🎉 <b>Ви успішно підписалися на арбітражні алерти.</b>\n"
                     "Я буду моніторити різницю цін на Binance та Bybit та сповіщу, як тільки спред перевищить 0.15%!"
                 )
-                try:
-                    bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, parse_mode='HTML', reply_markup=get_notifications_keyboard())
-                except:
-                    bot.send_message(chat_id, text, parse_mode='HTML', reply_markup=get_notifications_keyboard())
+                edit_rich_message(chat_id, message_id, text, reply_markup=get_notifications_keyboard())
             else:
-                text = "❌ Не вдалося зберегти підписку."
-                try:
-                    bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=get_notifications_keyboard())
-                except:
-                    bot.send_message(chat_id, text, reply_markup=get_notifications_keyboard())
+                edit_rich_message(chat_id, message_id, "❌ Не вдалося зберегти підписку.", reply_markup=get_notifications_keyboard())
                 
     elif data == "unsub_arbitrage":
         if not database.is_arbitrage_subscribed(chat_id):
-            text = "🤷 Ви не підписані на арбітражні алерти."
-            try:
-                bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=get_notifications_keyboard())
-            except:
-                bot.send_message(chat_id, text, reply_markup=get_notifications_keyboard())
+            edit_rich_message(chat_id, message_id, "🤷 Ви не підписані на арбітражні алерти.", reply_markup=get_notifications_keyboard())
         else:
             if database.unsubscribe_arbitrage(chat_id):
-                text = "😴 Ви успішно відключили арбітражні алерти."
-                try:
-                    bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=get_notifications_keyboard())
-                except:
-                    bot.send_message(chat_id, text, reply_markup=get_notifications_keyboard())
+                edit_rich_message(chat_id, message_id, "😴 Ви успішно відключили арбітражні алерти.", reply_markup=get_notifications_keyboard())
             else:
-                text = "❌ Сталася помилка при відписці."
-                try:
-                    bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=get_notifications_keyboard())
-                except:
-                    bot.send_message(chat_id, text, reply_markup=get_notifications_keyboard())
+                edit_rich_message(chat_id, message_id, "❌ Сталася помилка при відписці.", reply_markup=get_notifications_keyboard())
 
 # --- Веб-сервер перевірки працездатності (Health Check) ---
 
