@@ -134,7 +134,7 @@ def send_welcome(message):
 
 @bot.message_handler(func=lambda message: message.text == "📊 Сигнали")
 def show_signals_menu(message):
-    bot.send_message(message.chat.id, "📊 Оберіть актив для отримання сигналу:", reply_markup=get_signals_keyboard())
+    bot.send_message(message.chat.id, "📊 Оберіть актив для отримання сигналу або надішліть назву монети голосом/текстом:", reply_markup=get_signals_keyboard())
 
 @bot.message_handler(func=lambda message: message.text == "🔔 Сповіщення")
 def show_notifications_menu(message):
@@ -533,12 +533,12 @@ def handle_callback_query(call):
             bot.edit_message_text(
                 chat_id=chat_id,
                 message_id=message_id,
-                text="📊 <b>Оберіть актив для отримання сигналу:</b>",
+                text="📊 <b>Оберіть актив для отримання сигналу або надішліть назву монети голосом/текстом:</b>",
                 parse_mode='HTML',
                 reply_markup=get_signals_keyboard()
             )
         except:
-            bot.send_message(chat_id, "📊 <b>Оберіть актив для отримання сигналу:</b>", parse_mode='HTML', reply_markup=get_signals_keyboard())
+            bot.send_message(chat_id, "📊 <b>Оберіть актив для отримання сигналу або надішліть назву монети голосом/текстом:</b>", parse_mode='HTML', reply_markup=get_signals_keyboard())
             
     elif data == "menu_notifications":
         try:
