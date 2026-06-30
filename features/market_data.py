@@ -26,9 +26,24 @@ def get_binance_price(ticker: str) -> float:
     raise ValueError(f"Не удалось получить цену Binance для {ticker}")
 
 def get_bybit_price(ticker: str) -> float:
+    symbol = ticker.upper()
+    if not symbol.endswith('USDT'):
+        symbol = f"{symbol}USDT"
+    # 1. Попытка через прокси Bybit API
+    try:
+        url = f"{PROXY_BASE}/bybit/v5/market/tickers?category=linear&symbol={symbol}"
+        res = requests.get(url, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            if data.get('retCode') == 0 and data.get('result', {}).get('list'):
+                return float(data['result']['list'][0]['lastPrice'])
+    except Exception as e:
+        print(f"Bybit proxy price error: {e}")
+
+    # 2. Фоллбек на TradingView
     try:
         url = "https://scanner.tradingview.com/crypto/scan"
-        payload = {"symbols": {"tickers": [f"BYBIT:{ticker}USDT"]}, "columns": ["close"]}
+        payload = {"symbols": {"tickers": [f"BYBIT:{symbol}"]}, "columns": ["close"]}
         res = requests.post(url, json=payload, timeout=10)
         if res.status_code == 200 and res.json().get('data'):
             return float(res.json()['data'][0]['d'][0])
@@ -37,10 +52,19 @@ def get_bybit_price(ticker: str) -> float:
     raise ValueError(f"Не удалось получить цену Bybit для {ticker}")
 
 def get_live_price(ticker: str) -> float:
+    prices = []
     try:
-        return get_binance_price(ticker)
-    except:
-        return get_bybit_price(ticker)
+        prices.append(get_binance_price(ticker))
+    except Exception as e:
+        print(f"Ошибка получения цены Binance: {e}")
+    try:
+        prices.append(get_bybit_price(ticker))
+    except Exception as e:
+        print(f"Ошибка получения цены Bybit: {e}")
+        
+    if not prices:
+        raise ValueError(f"Не удалось получить цену ни от одного источника для {ticker}")
+    return sum(prices) / len(prices)
 
 def get_klines(ticker: str, interval: str = '15m', limit: int = 100) -> list:
     symbol = ticker.upper()

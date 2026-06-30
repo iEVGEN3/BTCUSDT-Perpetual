@@ -35,3 +35,12 @@
   - Direct Groq and Gemini to generate metaphors and step descriptions in Ukrainian.
 - **Action**: Pushed all commits to GitHub and deployed directly to Hugging Face Spaces.
 - **Status**: Fully completed and deployed.
+
+## [2026-06-30] Railway Adaptation & Bugfixes
+- **Action**: Adapted the bot to Railway environment requirements:
+  - Fixed Dockerfile `PORT` variable comment syntax.
+  - Re-implemented the health check listener in `features/bot.py` binding to `PORT`.
+  - Updated `features/market_data.py` to route Bybit prices through the Cloudflare Worker proxy (`/bybit/v5/market/tickers`), with a fallback to TradingView.
+  - Rewrote signal logic in `features/signals.py` to count matches and trigger signals if $\ge 3$ conditions align (consensus pricing).
+  - Restored Groq Whisper voice transcription and rich HTML messages in Ukrainian.
+- **Status**: Verified locally with all tests passing, ready for push and deployment.

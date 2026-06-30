@@ -52,7 +52,7 @@ class TestTradingTrainerBot(unittest.TestCase):
         sig = res['signal']
         
         # Для BTC цены больше $1, поэтому округляются до целых
-        if sig == "✅ ПОКУПАЙ":
+        if sig == "✅ КУПУЙ":
             expected_sl = int(round(raw_price * 0.985))
             expected_t1 = int(round(raw_price * 1.03))
             expected_t2 = int(round(raw_price * 1.06))

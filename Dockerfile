@@ -4,7 +4,7 @@ FROM python:3.11-slim
 RUN useradd -m -u 1000 user
 
 ENV PYTHONUNBUFFERED=1
-ENV PORT=8080   # ← важно для Railway
+ENV PORT=8080
 
 WORKDIR /app
 
