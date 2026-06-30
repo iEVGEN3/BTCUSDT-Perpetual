@@ -501,6 +501,13 @@ if __name__ == '__main__':
     health_thread = threading.Thread(target=run_health_server, daemon=True)
     health_thread.start()
 
+    # Видалення старого вебхука для уникнення конфлікту 409
+    print("Видалення старого вебхука...")
+    try:
+        bot.remove_webhook()
+    except Exception as e:
+        print(f"Помилка при видаленні вебхука: {e}")
+
     # Запуск планувальників
     scheduler_thread = threading.Thread(target=alert_scheduler_loop, daemon=True)
     scheduler_thread.start()
