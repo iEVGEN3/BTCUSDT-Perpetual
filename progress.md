@@ -63,3 +63,11 @@
   - Replaced hardcoded voice coin list in `features/bot.py` with `extract_ticker_from_text` helper supporting local keyword dictionary (top 30+ coins) and AI-powered fallback extraction (Llama/Gemini).
   - Translated all examples and descriptions of signal `ЧЕКАЙ` (formerly `ЖДИ`) and removed "child metaphor" references in `README.md` and `claude.md`.
 - **Status**: Completed and verified.
+
+## [2026-07-01] Clean Screen (Чистый Чат) Implementation
+- **Action**:
+  - Added a `last_message_id` column to the PostgreSQL `subscriptions` table and helper functions `get_last_message_id`/`update_last_message_id` in `features/database.py`.
+  - Wrapped `bot.send_message` in `features/bot.py` to automatically update the `last_message_id` for all private chat messages.
+  - Implemented an incoming message middleware `@bot.middleware_handler` in `features/bot.py` to delete the user's incoming query and the bot's previous message, ensuring only the active menu or signal is visible in the chat.
+  - Updated `handle_voice_message` to clean up the temporary "Голосовий запит..." status message right before posting the final signal.
+- **Status**: Completed and verified.

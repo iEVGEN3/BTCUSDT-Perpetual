@@ -39,6 +39,39 @@ if not TOKEN:
 
 bot = telebot.TeleBot(TOKEN)
 
+# --- Clean Screen (Чистый Чат) Middleware & Wrapper ---
+original_send_message = bot.send_message
+
+def send_message_with_tracking(*args, **kwargs):
+    sent_msg = original_send_message(*args, **kwargs)
+    if sent_msg and hasattr(sent_msg, 'chat') and hasattr(sent_msg, 'message_id'):
+        if sent_msg.chat.type == 'private':
+            import database
+            database.update_last_message_id(sent_msg.chat.id, sent_msg.message_id)
+    return sent_msg
+
+bot.send_message = send_message_with_tracking
+
+@bot.middleware_handler(update_types=['message'])
+def clean_screen_middleware(bot_instance, message):
+    if message.chat.type == 'private':
+        chat_id = message.chat.id
+        
+        # 1. Видаляємо вхідне повідомлення користувача
+        try:
+            bot_instance.delete_message(chat_id, message.message_id)
+        except Exception as e:
+            print(f"Помилка видалення вхідного повідомлення: {e}")
+            
+        # 2. Видаляємо останнє повідомлення бота
+        import database
+        last_msg_id = database.get_last_message_id(chat_id)
+        if last_msg_id:
+            try:
+                bot_instance.delete_message(chat_id, last_msg_id)
+            except Exception as e:
+                pass
+
 # Налаштування тайм-аутів
 telebot.apihelper.CONNECT_TIMEOUT = 60
 telebot.apihelper.READ_TIMEOUT = 60
@@ -465,7 +498,7 @@ def handle_voice_message(message):
             )
             return
             
-        bot.send_message(message.chat.id, f"🎙️ <b>Голосовий запит:</b> {ticker} (Розпізнано: «{transcribed_text}»)", parse_mode='HTML')
+        status_msg = bot.send_message(message.chat.id, f"🎙️ <b>Голосовий запит:</b> {ticker} (Розпізнано: «{transcribed_text}»)", parse_mode='HTML')
         
         sig_res = generate_signal(ticker)
         if not sig_res['success']:
@@ -473,6 +506,14 @@ def handle_voice_message(message):
             return
             
         formatted_msg = format_rich_signal_message(sig_res)
+        
+        # Видаляємо тимчасовий статус перед відправкою фінального сигналу
+        if status_msg:
+            try:
+                bot.delete_message(message.chat.id, status_msg.message_id)
+            except:
+                pass
+                
         send_rich_message(message.chat.id, formatted_msg, reply_markup=get_main_keyboard())
         
     except Exception as e:

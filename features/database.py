@@ -65,7 +65,42 @@ def init_db():
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             ''')
+            
+            # Добавляем колонку last_message_id, если она еще не создана
+            cursor.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_message_id INT;")
             conn.commit()
+
+def get_last_message_id(chat_id: int) -> int:
+    """Возвращает ID последнего сообщения бота в этом чате."""
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT last_message_id FROM subscriptions WHERE chat_id = %s", (chat_id,))
+                row = cursor.fetchone()
+                return row[0] if row else None
+    except Exception as e:
+        print(f"Ошибка получения last_message_id: {e}")
+        return None
+
+def update_last_message_id(chat_id: int, message_id: int) -> bool:
+    """Обновляет или добавляет ID последнего сообщения бота."""
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO subscriptions (chat_id, last_message_id) 
+                    VALUES (%s, %s) 
+                    ON CONFLICT (chat_id) 
+                    DO UPDATE SET last_message_id = EXCLUDED.last_message_id
+                    """,
+                    (chat_id, message_id)
+                )
+                conn.commit()
+                return True
+    except Exception as e:
+        print(f"Ошибка обновления last_message_id: {e}")
+        return False
 
 # --- Логика торговых сигналов ---
 
