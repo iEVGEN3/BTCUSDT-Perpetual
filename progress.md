@@ -50,3 +50,16 @@
   - Safely edits inline messages in Telegram using HTML parsing.
   - Implements a fallback to plain text parsing if HTML tags cause formatting exceptions.
 - **Status**: Completed and verified.
+
+## [2026-07-01] Telegram Bot Token Compromise Response
+- **Action**: Responded to potential token exposure/compromise.
+  - Replaced the hardcoded bot token in `README.md` with a placeholder `YOUR_TELEGRAM_BOT_TOKEN` to ensure it is no longer exposed in active repository files on GitHub.
+  - Replaced the old bot token in the local git-ignored `.env` file with the new token provided by the user.
+- **Status**: Completed.
+
+## [2026-07-01] Voice Coin Support Expansion & Channel Subscription
+- **Action**: 
+  - Subscribed the user's Telegram channel (`-1002147858686`) to automated signals and arbitrage alerts in the Neon database.
+  - Replaced hardcoded voice coin list in `features/bot.py` with `extract_ticker_from_text` helper supporting local keyword dictionary (top 30+ coins) and AI-powered fallback extraction (Llama/Gemini).
+  - Translated all examples and descriptions of signal `ЧЕКАЙ` (formerly `ЖДИ`) and removed "child metaphor" references in `README.md` and `claude.md`.
+- **Status**: Completed and verified.

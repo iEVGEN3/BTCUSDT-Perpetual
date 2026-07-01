@@ -327,6 +327,91 @@ def edit_rich_message(chat_id, message_id, html_content, reply_markup=None):
         except Exception as e2:
             print(f"Помилка редагування чистого тексту: {e2}")
 
+def extract_ticker_from_text(text: str) -> str:
+    text_clean = text.lower().strip()
+    
+    # 1. Локальний словник популярних коінів
+    mappings = {
+        "BTC": ["біткоїн", "bitcoin", "бтк", "btc", "биткоин"],
+        "ETH": ["ефір", "ефіріум", "ethereum", "eth", "эфир", "эфириум"],
+        "SOL": ["солана", "солан", "solana", "sol"],
+        "TON": ["тонкоїн", "тон", "toncoin", "ton"],
+        "DOGE": ["догікоїн", "догі", "дог", "doge", "доги"],
+        "NOT": ["ноткоїн", "нот", "notcoin", "not"],
+        "TRX": ["трон", "tron", "trx"],
+        "XRP": ["ріпл", "рипл", "ripple", "xrp"],
+        "LTC": ["лайткоїн", "лайткоин", "litecoin", "ltc"],
+        "BNB": ["бнб", "bnb", "бінанс", "бинанс"],
+        "NEAR": ["ніар", "near"],
+        "SUI": ["суї", "sui"],
+        "APT": ["аптос", "aptos", "apt"],
+        "PEPE": ["пепе", "pepe"],
+        "SHIB": ["шиба", "shiba", "shib"],
+        "ADA": ["кардано", "cardano", "ada"],
+        "DOT": ["полкадот", "polkadot", "dot"],
+        "AVAX": ["авакс", "avalanche", "avax"],
+        "LINK": ["лінк", "чейнлінк", "chainlink", "link"],
+        "UNI": ["унісвоп", "uniswap", "uni"],
+        "ATOM": ["атом", "космос", "cosmos", "atom"],
+        "ETC": ["класик", "ethereum classic", "etc"],
+        "BCH": ["біткоїн кеш", "bitcoin cash", "bch"],
+        "FIL": ["файлкоїн", "filecoin", "fil"],
+        "ICP": ["айсіпі", "icp"],
+        "IMX": ["імутабл", "imx"],
+        "FTM": ["фантом", "fantom", "ftm"]
+    }
+    
+    for ticker, keywords in mappings.items():
+        if any(w in text_clean for w in keywords):
+            return ticker
+            
+    # 2. Перевірка на пряме входження англійських літер
+    import re
+    words = re.findall(r'[a-zA-Z]{2,6}', text_clean)
+    if words:
+        return words[0].upper()
+        
+    # 3. AI-розпізнавання для складних запитів
+    api_key = os.getenv('GROQ_API_KEY') or os.getenv('GEMINI_API_KEY')
+    if not api_key:
+        return None
+        
+    prompt = (
+        f"Знайди назву криптовалюти в наступному тексті та поверни тільки її офіційний тикер (наприклад: BTC, ETH, SOL, TRX, LTC, ADA, XRP) в форматі одного слова. "
+        f"Якщо тикер знайти не вдалося, поверни 'NONE'.\n"
+        f"Текст: \"{text}\"\n"
+        f"Тикер:"
+    )
+    
+    if os.getenv('GROQ_API_KEY'):
+        try:
+            client = Groq(api_key=os.getenv('GROQ_API_KEY'))
+            chat_completion = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.3-70b-versatile",
+                temperature=0.0,
+                max_tokens=10
+            )
+            res = chat_completion.choices[0].message.content.strip().upper()
+            if res != "NONE" and 2 <= len(res) <= 6:
+                return res
+        except Exception as e:
+            print(f"Помилка отримання тикера через Groq: {e}")
+            
+    if os.getenv('GEMINI_API_KEY'):
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+            model = genai.GenerativeModel("gemini-2.5-flash")
+            response = model.generate_content(prompt)
+            res = response.text.strip().upper()
+            if res != "NONE" and 2 <= len(res) <= 6:
+                return res
+        except Exception as e:
+            print(f"Помилка отримання тикера через Gemini: {e}")
+            
+    return None
+
 @bot.message_handler(content_types=['voice'])
 def handle_voice_message(message):
     """Отримує голосове повідомлення, трансформує в текст через Groq Whisper та генерує сигнал."""
@@ -370,25 +455,13 @@ def handle_voice_message(message):
         transcribed_text = transcription.text.strip().lower()
         print(f"Розпізнаний голос (укр): {transcribed_text}")
         
-        ticker = None
-        if any(w in transcribed_text for w in ["біткоїн", "bitcoin", "бтк", "btc", "биткоин"]):
-            ticker = "BTC"
-        elif any(w in transcribed_text for w in ["ефір", "ефіріум", "ethereum", "eth", "эфир"]):
-            ticker = "ETH"
-        elif any(w in transcribed_text for w in ["солана", "солан", "solana", "sol"]):
-            ticker = "SOL"
-        elif any(w in transcribed_text for w in ["тонкоїн", "тон", "toncoin", "ton"]):
-            ticker = "TON"
-        elif any(w in transcribed_text for w in ["догікоїн", "догі", "дог", "doge", "доги"]):
-            ticker = "DOGE"
-        elif any(w in transcribed_text for w in ["ноткоїн", "нот", "notcoin", "not"]):
-            ticker = "NOT"
+        ticker = extract_ticker_from_text(transcribed_text)
             
         if not ticker:
             bot.reply_to(
                 message, 
                 f"👂 Розпізнаний текст: «{transcribed_text}».\n"
-                "На жаль, тикер активу не визначено. Скажіть назву чіткіше (Біткоїн, Ефір, Солана, Тон)."
+                "На жаль, тикер активу не визначено. Будь ласка, скажіть назву монети чіткіше (наприклад: Біткоїн, Ефір, Солана, Трон, Догі тощо)."
             )
             return
             
