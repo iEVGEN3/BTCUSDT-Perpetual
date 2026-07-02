@@ -86,3 +86,11 @@
   - Updated the database schema definition in `gemini.md`.
   - Ran unit tests verifying the fix is correct and error-free.
 - **Status**: Completed and verified.
+
+## [2026-07-02] Clean Screen & Message Reply Conflict Bugfix
+- **Action**: Fixed crashes occurring due to attempts to reply to deleted messages.
+  - Replaced all calls to `bot.reply_to(message, ...)` in `features/bot.py` with `bot.send_message(message.chat.id, ...)`.
+  - This prevents conflicts with the Clean Screen middleware which deletes incoming user queries immediately.
+  - Verified local code consistency and ran unit tests to ensure no regressions were introduced.
+- **Status**: Completed and verified.
+

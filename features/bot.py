@@ -491,8 +491,8 @@ def handle_voice_message(message):
         ticker = extract_ticker_from_text(transcribed_text)
             
         if not ticker:
-            bot.reply_to(
-                message, 
+            bot.send_message(
+                message.chat.id, 
                 f"👂 Розпізнаний текст: «{transcribed_text}».\n"
                 "На жаль, тикер активу не визначено. Будь ласка, скажіть назву монети чіткіше (наприклад: Біткоїн, Ефір, Солана, Трон, Догі тощо)."
             )
@@ -502,7 +502,7 @@ def handle_voice_message(message):
         
         sig_res = generate_signal(ticker)
         if not sig_res['success']:
-            bot.reply_to(message, "Ринковий аналізатор тимчасово недоступний.")
+            bot.send_message(message.chat.id, "Ринковий аналізатор тимчасово недоступний.")
             return
             
         formatted_msg = format_rich_signal_message(sig_res)
@@ -518,7 +518,7 @@ def handle_voice_message(message):
         
     except Exception as e:
         print(f"Помилка обробки голосового повідомлення: {e}")
-        bot.reply_to(message, f"❌ Помилка обробки голосу: {e}")
+        bot.send_message(message.chat.id, f"❌ Помилка обробки голосу: {e}")
 
 @bot.message_handler(func=lambda message: True)
 def handle_ticker_request(message):
@@ -538,7 +538,7 @@ def handle_ticker_request(message):
     sig_res = generate_signal(ticker)
     
     if not sig_res['success']:
-        bot.reply_to(message, f"Ринковий аналізатор недоступний для {ticker}. Перевірте введення (наприклад: BTC, ETH, SOL, TON).")
+        bot.send_message(message.chat.id, f"Ринковий аналізатор недоступний для {ticker}. Перевірте введення (наприклад: BTC, ETH, SOL, TON).")
         return
         
     formatted_msg = format_rich_signal_message(sig_res)
