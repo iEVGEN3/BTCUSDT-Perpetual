@@ -7,7 +7,7 @@ from functools import lru_cache
 from dotenv import load_dotenv
 import google.generativeai as genai
 from groq import Groq
-from market_data import analyze_market, get_binance_price, get_bybit_price
+from market_data import analyze_market, get_binance_price, get_bybit_price, get_klines, calculate_ema
 
 # IPv4 hack
 import socket
@@ -165,6 +165,27 @@ def generate_signal(ticker: str) -> dict:
     macd = data['macd']
     ema50 = data['ema50']
     tv_rec = data.get('tradingview_recommendation', 'NEUTRAL')
+    atr = data.get('atr', 0.0)
+    adx = data.get('adx', 0.0)
+
+    # 1. Фільтр глобального тренду на старшому таймфреймі (1H)
+    try:
+        klines_1h = get_klines(ticker, '1h', 250)
+        close_1h = [float(k[4]) for k in klines_1h] if klines_1h else []
+        if len(close_1h) >= 20:
+            period_ema = min(len(close_1h), 200)
+            ema200_1h = calculate_ema(close_1h, period_ema)
+            trend_1h_long = price > ema200_1h
+            trend_1h_short = price < ema200_1h
+        else:
+            trend_1h_long = True
+            trend_1h_short = True
+            ema200_1h = price
+    except Exception as e:
+        print(f"Помилка розрахунку 1H EMA 200: {e}")
+        trend_1h_long = True
+        trend_1h_short = True
+        ema200_1h = price
 
     # Консенсусна логіка (мінімум 3 індикатори)
     macd_bullish = macd['macd_curr'] > macd['signal_curr']
@@ -187,18 +208,29 @@ def generate_signal(ticker: str) -> dict:
     confidence = 40
     metaphor = "Технічні показники нейтральні, виражений трендовий рух відсутній."
     one_liner = "Рекомендується перебувати поза угодами до появи зрозумілих сигналів."
-    
+
     # Визначаємо тип сигналу
-    if long_score >= 3:
+    if long_score >= 3 and trend_1h_long and adx >= 20:
         signal_type = "✅ КУПУЙ"
         confidence = 85 if long_score == 4 else 70
         metaphor = "Сильний бичачий імпульс: більшість технічних індикаторів (включаючи EMA50, MACD та RSI) вказують на зростання."
         one_liner = "Відкриття угоди на купівлю з обов'язковим обмеженням ризиків."
-    elif short_score >= 3:
+    elif short_score >= 3 and trend_1h_short and adx >= 20:
         signal_type = "❌ ПРОДАВАЙ"
         confidence = 85 if short_score == 4 else 70
         metaphor = "Ведмежий імпульс підтверджено: технічні індикатори сигналізують про спадний рух ціни."
         one_liner = "Відкриття угоди на продаж з обов'язковим обмеженням ризиків."
+    else:
+        # Спеціалізовані пояснення причин переходу в режим очікування
+        if long_score >= 3 and not trend_1h_long:
+            metaphor = "Локальний бичачий сигнал ігнорується, оскільки глобальний тренд на старшому таймфреймі (1H) є низхідним (ціна нижче EMA 200)."
+            one_liner = "Заборонено купувати проти глобального тренду."
+        elif short_score >= 3 and not trend_1h_short:
+            metaphor = "Локальний ведмежий сигнал ігнорується, оскільки глобальний тренд на старшому таймфреймі (1H) є висхідним (ціна вище EMA 200)."
+            one_liner = "Заборонено продавати проти глобального тренду."
+        elif (long_score >= 3 or short_score >= 3) and adx < 20:
+            metaphor = f"Локальний сигнал скасовано через низьку силу тренду (ADX = {adx:.2f} при нормі від 20). Ринок перебуває у боковику (флеті)."
+            one_liner = "Рекомендується утриматися від угод у флетових зонах."
 
     # Округлення ціни
     if price < 10:
@@ -208,18 +240,32 @@ def generate_signal(ticker: str) -> dict:
         price_str = f"{int(round(price))}"
         mult = 1
 
-    if signal_type == "✅ КУПУЙ":
-        stop_loss = round(price * 0.985 / mult) * mult
-        target1 = round(price * 1.03 / mult) * mult
-        target2 = round(price * 1.06 / mult) * mult
-    elif signal_type == "❌ ПРОДАВАЙ":
-        stop_loss = round(price * 1.015 / mult) * mult
-        target1 = round(price * 0.97 / mult) * mult
-        target2 = round(price * 0.94 / mult) * mult
+    # Динамічний розрахунок Stop Loss та Take Profit на основі ATR
+    atr_multiplier = 1.5
+    min_sl_pct = 0.01  # Мін. стоп 1%
+    max_sl_pct = 0.05  # Макс. стоп 5%
+
+    if atr > 0:
+        sl_distance = atr * atr_multiplier
+        if sl_distance < price * min_sl_pct:
+            sl_distance = price * min_sl_pct
+        elif sl_distance > price * max_sl_pct:
+            sl_distance = price * max_sl_pct
     else:
-        stop_loss = round(price * 0.985 / mult) * mult
-        target1 = round(price * 1.03 / mult) * mult
-        target2 = round(price * 1.06 / mult) * mult
+        sl_distance = price * 0.015
+
+    if signal_type == "✅ КУПУЙ":
+        stop_loss = price - sl_distance
+        target1 = price + sl_distance * 1.5
+        target2 = price + sl_distance * 3.0
+    elif signal_type == "❌ ПРОДАВАЙ":
+        stop_loss = price + sl_distance
+        target1 = price - sl_distance * 1.5
+        target2 = price - sl_distance * 3.0
+    else:
+        stop_loss = price - sl_distance
+        target1 = price + sl_distance * 1.5
+        target2 = price + sl_distance * 3.0
 
     if price < 10:
         stop_loss = round(stop_loss, 4)

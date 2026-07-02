@@ -100,3 +100,20 @@
   - Set `telebot.logger` log level to `logging.CRITICAL` to suppress polling exception outputs during temporary connection timeouts.
   - Verified compilation and test suite correctness.
 - **Status**: Completed and verified.
+
+## [2026-07-02] Context7 MCP Server Setup
+- **Action**: Configured Upstash Context7 MCP server in the IDE configurations.
+  - Inspected `mcp_config.json` at `C:\Users\Admin\.gemini\antigravity-ide\mcp_config.json`.
+  - Determined that local Node.js/npx are not configured in system PATH.
+  - Configured Context7 using the remote SSE endpoint: `https://mcp.context7.com/mcp` for frictionless setup and zero local dependencies.
+  - Integrated the user's Context7 API key (`ctx7sk-e3ba7e77-0cfb-4e85-8e4a-94596140775e`) into configuration headers to unlock high-rate limits.
+- Status: Completed and authorized.
+
+## [2026-07-02] Signals Consensus 2.0 Implementation
+- **Action**: Designed and implemented new consensus metrics and filtering systems.
+  - Added pure Python calculations for 14-period ATR (Average True Range) and ADX (Average Directional Index) in `market_data.py` to keep the application lightweight.
+  - Implemented 1H EMA 200 trend filter and ADX strength threshold (>= 20) in `signals.py` to filter out anti-trend and flat market signals.
+  - Configured dynamic ATR-based Stop Loss and Take Profit levels (SL = 1.5 * ATR, TP1 = 1.5 * SL, TP2 = 3 * SL) to adjust risk dynamically based on market volatility.
+  - Re-implemented `get_klines`, `get_binance_price`, and `get_bybit_price` using direct-first connections and proxy fallbacks to bypass CloudFront blocks and ensure maximum connectivity.
+  - Validated changes via `tools/test_consensus_2.py` showing successful data fetching and signal filtering (SOL buy signal successfully filtered and converted to wait due to low ADX/flat).
+- **Status**: Completed and fully verified.
