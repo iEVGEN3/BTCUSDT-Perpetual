@@ -14,7 +14,10 @@
 | `chat_id` | BIGINT | PRIMARY KEY | Telegram ID пользователя или чата |
 | `username` | VARCHAR(100) | NULLABLE | Telegram username подписчика |
 | `subscribed_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Время подписки |
+| `signals_subscribed` | BOOLEAN | DEFAULT FALSE | Флаг подписки на сигналы |
+| `last_message_id` | INT | NULLABLE | ID последнего сообщения бота |
 | `arbitrage_subscribed` | BOOLEAN | DEFAULT FALSE | Флаг подписки на арбитраж |
+
 
 ### Таблица истории сигналов (`signal_history`)
 | Поле | Тип | Ограничение | Описание |

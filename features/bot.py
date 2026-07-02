@@ -36,7 +36,7 @@ load_env_file()
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 if not TOKEN:
     raise ValueError("Токен TELEGRAM_BOT_TOKEN не знайдено!")
-
+telebot.apihelper.ENABLE_MIDDLEWARE = True
 bot = telebot.TeleBot(TOKEN)
 
 # --- Clean Screen (Чистый Чат) Middleware & Wrapper ---

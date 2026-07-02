@@ -71,3 +71,18 @@
   - Implemented an incoming message middleware `@bot.middleware_handler` in `features/bot.py` to delete the user's incoming query and the bot's previous message, ensuring only the active menu or signal is visible in the chat.
   - Updated `handle_voice_message` to clean up the temporary "Голосовий запит..." status message right before posting the final signal.
 - **Status**: Completed and verified.
+
+## [2026-07-02] Middleware Initialization Bugfix
+- **Action**: Enabling telebot middleware correctly in `features/bot.py`.
+  - Added `telebot.apihelper.ENABLE_MIDDLEWARE = True` prior to `TeleBot` instance initialization.
+  - Verified local code consistency and ran unit tests to ensure no regressions were introduced.
+- **Status**: Completed and verified.
+
+## [2026-07-02] Subscription Logic & Database Schema Bugfix
+- **Action**: Separated message tracking from subscription logic in `features/database.py`.
+  - Added `signals_subscribed BOOLEAN DEFAULT FALSE` to `subscriptions` table.
+  - Added automatic column migration `ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS signals_subscribed` inside `init_db`.
+  - Refactored `subscribe_user`, `unsubscribe_user`, `is_subscribed`, and `get_all_subscribers` to read/write the new column.
+  - Updated the database schema definition in `gemini.md`.
+  - Ran unit tests verifying the fix is correct and error-free.
+- **Status**: Completed and verified.

@@ -31,6 +31,12 @@
 ## Ошибки интерфейса и обработки сообщений
 - **Наблюдение**: Переход к бесшовному обновлению сообщений (Clean Screen) привел к исключениям `NameError: name 'edit_rich_message' is not defined` в `features/bot.py`.
 - **Решение**: Добавлена функция `edit_rich_message`, использующая метод `bot.edit_message_text` с HTML-парсингом и безопасным откатом к тексту без HTML-тегов при возникновении ошибок разметки.
+- **Наблюдение**: При добавлении `@bot.middleware_handler` без предварительного включения поддержки middleware библиотека pyTelegramBotAPI выбрасывала ошибку `RuntimeError: Middleware is not enabled. Use apihelper.ENABLE_MIDDLEWARE before initialising TeleBot.`
+- **Решение**: Добавлена строка `telebot.apihelper.ENABLE_MIDDLEWARE = True` перед инициализацией `bot = telebot.TeleBot(TOKEN)`.
+- **Наблюдение**: Реализация Clean Screen (Чистый Чат) сохраняла `last_message_id` в таблице `subscriptions` для каждого активного чата. Поскольку подписка на сигналы определялась простым наличием строки для `chat_id` в этой таблице (`SELECT 1 FROM subscriptions`), каждый пользователь при первом же действии (даже без согласия) автоматически подписывался на сигналы и не мог отписаться (так как отправка подтверждения отписки снова создавала запись в БД с новым `last_message_id`).
+- **Решение**: Добавлен отдельный флаг `signals_subscribed BOOLEAN DEFAULT FALSE` в схему таблицы `subscriptions`. Переписаны функции `subscribe_user`, `unsubscribe_user`, `is_subscribed` и `get_all_subscribers` для работы с этим флагом. Теперь `last_message_id` отслеживается без автоматической принудительной подписки на сигналы.
+
+
 
 ## Утечка токена Telegram-бота
 - **Наблюдение**: Старый токен Telegram-бота был жестко прописан в публичном файле `README.md` на строке 57 и попал на GitHub.

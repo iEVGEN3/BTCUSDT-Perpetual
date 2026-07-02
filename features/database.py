@@ -39,6 +39,7 @@ def init_db():
                     chat_id BIGINT PRIMARY KEY,
                     username VARCHAR(100),
                     subscribed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    signals_subscribed BOOLEAN DEFAULT FALSE,
                     arbitrage_subscribed BOOLEAN DEFAULT FALSE
                 );
             ''')
@@ -68,7 +69,10 @@ def init_db():
             
             # Добавляем колонку last_message_id, если она еще не создана
             cursor.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS last_message_id INT;")
+            # Добавляем колонку signals_subscribed для миграции существующих БД
+            cursor.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS signals_subscribed BOOLEAN DEFAULT FALSE;")
             conn.commit()
+
 
 def get_last_message_id(chat_id: int) -> int:
     """Возвращает ID последнего сообщения бота в этом чате."""
@@ -111,10 +115,10 @@ def subscribe_user(chat_id: int, username: str = None) -> bool:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO subscriptions (chat_id, username) 
-                    VALUES (%s, %s) 
+                    INSERT INTO subscriptions (chat_id, username, signals_subscribed) 
+                    VALUES (%s, %s, TRUE) 
                     ON CONFLICT (chat_id) 
-                    DO UPDATE SET username = EXCLUDED.username
+                    DO UPDATE SET signals_subscribed = TRUE, username = EXCLUDED.username
                     """,
                     (chat_id, username)
                 )
@@ -129,7 +133,7 @@ def unsubscribe_user(chat_id: int) -> bool:
     try:
         with get_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute("DELETE FROM subscriptions WHERE chat_id = %s", (chat_id,))
+                cursor.execute("UPDATE subscriptions SET signals_subscribed = FALSE WHERE chat_id = %s", (chat_id,))
                 conn.commit()
                 return True
     except Exception as e:
@@ -141,8 +145,9 @@ def is_subscribed(chat_id: int) -> bool:
     try:
         with get_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute("SELECT 1 FROM subscriptions WHERE chat_id = %s", (chat_id,))
-                return cursor.fetchone() is not None
+                cursor.execute("SELECT signals_subscribed FROM subscriptions WHERE chat_id = %s", (chat_id,))
+                row = cursor.fetchone()
+                return row is not None and row[0] is True
     except Exception as e:
         print(f"Ошибка при проверке подписки: {e}")
         return False
@@ -152,11 +157,12 @@ def get_all_subscribers() -> list:
     try:
         with get_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute("SELECT chat_id FROM subscriptions")
+                cursor.execute("SELECT chat_id FROM subscriptions WHERE signals_subscribed = TRUE")
                 return [row[0] for row in cursor.fetchall()]
     except Exception as e:
         print(f"Ошибка при получении всех подписчиков: {e}")
         return []
+
 
 def save_signal(ticker: str, price: float, signal_type: str):
     """Сохраняет сгенерированный торговый сигнал в историю."""
