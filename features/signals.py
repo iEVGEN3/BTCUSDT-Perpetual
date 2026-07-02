@@ -1,6 +1,8 @@
 import os
 import json
 import time
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
 from functools import lru_cache
 from dotenv import load_dotenv
 import google.generativeai as genai

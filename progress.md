@@ -94,3 +94,9 @@
   - Verified local code consistency and ran unit tests to ensure no regressions were introduced.
 - **Status**: Completed and verified.
 
+## [2026-07-02] Logs and Warnings Suppression
+- **Action**: Cleaned up workspace output and prevented IDE from highlighting warnings as errors.
+  - Configured warnings filter `warnings.filterwarnings("ignore", category=FutureWarning)` in `bot.py` and `signals.py`.
+  - Set `telebot.logger` log level to `logging.CRITICAL` to suppress polling exception outputs during temporary connection timeouts.
+  - Verified compilation and test suite correctness.
+- **Status**: Completed and verified.

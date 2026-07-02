@@ -1,5 +1,8 @@
 import os
 import time
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+import logging
 import threading
 import json
 import requests
@@ -37,6 +40,7 @@ TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 if not TOKEN:
     raise ValueError("Токен TELEGRAM_BOT_TOKEN не знайдено!")
 telebot.apihelper.ENABLE_MIDDLEWARE = True
+telebot.logger.setLevel(logging.CRITICAL)
 bot = telebot.TeleBot(TOKEN)
 
 # --- Clean Screen (Чистый Чат) Middleware & Wrapper ---
