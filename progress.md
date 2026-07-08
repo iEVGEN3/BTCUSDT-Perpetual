@@ -117,3 +117,10 @@
   - Re-implemented `get_klines`, `get_binance_price`, and `get_bybit_price` using direct-first connections and proxy fallbacks to bypass CloudFront blocks and ensure maximum connectivity.
   - Validated changes via `tools/test_consensus_2.py` showing successful data fetching and signal filtering (SOL buy signal successfully filtered and converted to wait due to low ADX/flat).
 - **Status**: Completed and fully verified.
+
+## [2026-07-08] Hugging Face Space Keep-Alive Ping Loop
+- **Action**: Implemented an autonomous keep-alive ping loop in the Telegram bot.
+  - Added a background thread `hf_space_ping_loop` in `features/bot.py` that makes an HTTP GET request to the Hugging Face Space URL every 9 minutes.
+  - Allowed configuring the Space URL via the `HF_SPACE_URL` environment variable, defaulting to `https://glove-3-omniroute.hf.space/`.
+  - Started the ping thread on bot initialization to prevent the Space from going to sleep due to inactivity without relying on third-party services like UptimeRobot.
+- **Status**: Completed.

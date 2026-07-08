@@ -740,6 +740,22 @@ def run_health_server():
     print(f"Запущено веб-сервер перевірки здоров'я на порту {port}...")
     server.serve_forever()
 
+def hf_space_ping_loop():
+    """Фоновий цикл пінгів для запобігання засинанню Hugging Face Space."""
+    time.sleep(10)  # Даємо боту спокійно запуститися
+    url = os.getenv('HF_SPACE_URL', 'https://glove-3-omniroute.hf.space/').strip()
+    print(f"Запущено фоновий пінгер Hugging Face Space. Ціль: {url}")
+    while True:
+        try:
+            print(f"Надсилання запиту до Space: {url}...")
+            # Робимо HTTP GET запит
+            res = requests.get(url, timeout=20)
+            print(f"Результат запиту до Space: статус {res.status_code}")
+        except Exception as e:
+            print(f"Помилка при зверненні до Space: {e}")
+        # Пінгуємо кожні 9 хвилин (540 секунд)
+        time.sleep(540)
+
 if __name__ == '__main__':
     # Запуск веб-сервера для Railway
     health_thread = threading.Thread(target=run_health_server, daemon=True)
@@ -758,6 +774,10 @@ if __name__ == '__main__':
     
     arbitrage_thread = threading.Thread(target=arbitrage_scheduler_loop, daemon=True)
     arbitrage_thread.start()
+
+    # Запуск пінгера для Hugging Face Space
+    hf_ping_thread = threading.Thread(target=hf_space_ping_loop, daemon=True)
+    hf_ping_thread.start()
     
     print("Запуск боту в режимі polling...")
     bot.infinity_polling(none_stop=True)
