@@ -2,6 +2,7 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
+import datetime
 
 # Загружаем переменные окружения
 def load_env_file():
@@ -163,32 +164,46 @@ def get_all_subscribers() -> list:
         print(f"Ошибка при получении всех подписчиков: {e}")
         return []
 
+# Кэш для сигналов в памяти
+_signals_cache = {}
 
 def save_signal(ticker: str, price: float, signal_type: str):
     """Сохраняет сгенерированный торговый сигнал в историю."""
+    ticker_upper = ticker.upper()
     try:
         with get_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
                     "INSERT INTO signal_history (ticker, price, signal_type) VALUES (%s, %s, %s)",
-                    (ticker.upper(), price, signal_type)
+                    (ticker_upper, price, signal_type)
                 )
                 conn.commit()
+        _signals_cache[ticker_upper] = {
+            'signal_type': signal_type,
+            'price': price,
+            'timestamp': datetime.datetime.now()
+        }
     except Exception as e:
         print(f"Ошибка при сохранении сигнала: {e}")
 
 def get_last_signal(ticker: str) -> dict:
     """Возвращает последний отправленный торговый сигнал по тикеру."""
+    ticker_upper = ticker.upper()
+    if ticker_upper in _signals_cache:
+        return _signals_cache[ticker_upper]
     try:
         with get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     "SELECT signal_type, price, timestamp FROM signal_history WHERE ticker = %s ORDER BY id DESC LIMIT 1",
-                    (ticker.upper(),)
+                    (ticker_upper,)
                 )
                 row = cursor.fetchone()
                 if row:
-                    return dict(row)
+                    signal = dict(row)
+                    _signals_cache[ticker_upper] = signal
+                    return signal
+                _signals_cache[ticker_upper] = None
                 return None
     except Exception as e:
         print(f"Ошибка получения последнего сигнала: {e}")
@@ -254,8 +269,12 @@ def get_all_arbitrage_subscribers() -> list:
         print(f"Ошибка при получении подписчиков арбитража: {e}")
         return []
 
+# Кэш для арбитража в памяти
+_arbitrage_cache = {}
+
 def save_arbitrage_opportunity(ticker: str, binance_price: float, bybit_price: float, spread_pct: float):
     """Сохраняет найденную арбитражную связку в базу данных."""
+    ticker_upper = ticker.upper()
     try:
         with get_connection() as conn:
             with conn.cursor() as cursor:
@@ -264,24 +283,36 @@ def save_arbitrage_opportunity(ticker: str, binance_price: float, bybit_price: f
                     INSERT INTO arbitrage_history (ticker, binance_price, bybit_price, spread_pct) 
                     VALUES (%s, %s, %s, %s)
                     """,
-                    (ticker.upper(), binance_price, bybit_price, spread_pct)
+                    (ticker_upper, binance_price, bybit_price, spread_pct)
                 )
                 conn.commit()
+        _arbitrage_cache[ticker_upper] = {
+            'binance_price': binance_price,
+            'bybit_price': bybit_price,
+            'spread_pct': spread_pct,
+            'timestamp': datetime.datetime.now()
+        }
     except Exception as e:
         print(f"Ошибка при сохранении арбитражной связки: {e}")
 
 def get_last_arbitrage_opportunity(ticker: str) -> dict:
     """Возвращает последнюю зафиксированную арбитражную связку по тикеру."""
+    ticker_upper = ticker.upper()
+    if ticker_upper in _arbitrage_cache:
+        return _arbitrage_cache[ticker_upper]
     try:
         with get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     "SELECT binance_price, bybit_price, spread_pct, timestamp FROM arbitrage_history WHERE ticker = %s ORDER BY id DESC LIMIT 1",
-                    (ticker.upper(),)
+                    (ticker_upper,)
                 )
                 row = cursor.fetchone()
                 if row:
-                    return dict(row)
+                    opp = dict(row)
+                    _arbitrage_cache[ticker_upper] = opp
+                    return opp
+                _arbitrage_cache[ticker_upper] = None
                 return None
     except Exception as e:
         print(f"Ошибка получения последней арбитражной связки: {e}")
